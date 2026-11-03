@@ -316,7 +316,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;defaultMetric&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amt&quot;,&quot;st&quot;,&quot;tv&quot;,&quot;n&quot;,&quot;p&quot;],&quot;default&quot;:&quot;amt&quot;,&quot;tsType&quot;:&quot;'amt'|'st'|'tv'|'n'|'p'&quot;},&quot;defaultSolution&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;all&quot;,&quot;M&quot;,&quot;G&quot;],&quot;default&quot;:&quot;all&quot;,&quot;tsType&quot;:&quot;'all'|'M'|'G'&quot;}}">
 // 배포한 Apps Script 웹앱 주소. 비밀번호를 맞혀야 집계 숫자를 돌려줍니다.
-const API_URL = '여기에-웹앱-주소-입력';
+const API_URL = 'https://script.google.com/macros/s/AKfycby0JVory4qMaKZ9I31ePOEkOZzhHYRkGKBDfY6t0s4DlyvkQD0bLgeZ7-iVOprKYlla/exec';
 const PW_KEY = 'dash-pw';
 const REFRESH_MS = 5 * 60 * 1000;
 const readPw = () => { try { return sessionStorage.getItem(PW_KEY) || ''; } catch (e) { return ''; } };
