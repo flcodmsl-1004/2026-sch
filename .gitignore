@@ -1,6 +1,7 @@
 # 공개 저장소입니다. 아래에 허용한 파일만 올라가고, 나머지는 모두 제외됩니다.
 *
 !.gitignore
+!.nojekyll
 !README.md
 !index.html
 !support.js
