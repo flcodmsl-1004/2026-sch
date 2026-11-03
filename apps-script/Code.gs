@@ -200,12 +200,57 @@ function normalizeRow_(raw) {
       level: str_(raw['학교급']),
       end: parseDate_(raw['만료일']),
       endRaw: str_(raw['만료일']),
+      recv: parseDate_(raw['접수일']) || date, // 접수일이 없으면 날짜로 주차를 계산
     },
   };
 }
 
 function ymd_(y, m, d) {
   return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+}
+
+// 그 주의 월요일 (주차는 월요일~일요일)
+function mondayOf_(d) {
+  const dt = new Date(Date.UTC(d.y, d.m - 1, d.d));
+  dt.setUTCDate(dt.getUTCDate() - (dt.getUTCDay() + 6) % 7);
+  return ymd_(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+}
+
+// 접수일 기준 주차별·시도별 합계. 학교별 행은 포함하지 않습니다.
+function weeklyData_(rows) {
+  const out = { year: REPORT_YEAR, weekly: {}, monthSchools: {}, regions: {} };
+  const round = v => Math.round(v);
+  ['all', 'M', 'G'].forEach(key => {
+    const picked = key === 'all' ? rows : rows.filter(r => r.sol === key);
+    const weeks = {}, monthSch = {}, regions = {};
+    REGIONS.forEach(k => { regions[k] = { m: Array.from({ length: 12 }, () => [0, 0]), w: {}, first: '' }; });
+    picked.forEach(r => {
+      const monday = mondayOf_(r.recv);
+      const school = r.school + '|' + r.region;
+      if (!weeks[monday]) weeks[monday] = { n: 0, sch: {}, amt: 0, st: 0 };
+      const w = weeks[monday];
+      w.n++; w.sch[school] = true; w.amt += r.amt; w.st += r.st;
+      const ym = monday.slice(0, 7);
+      if (!monthSch[ym]) monthSch[ym] = {};
+      monthSch[ym][school] = true;
+      if (!regions[r.region]) regions[r.region] = { m: Array.from({ length: 12 }, () => [0, 0]), w: {}, first: '' };
+      const reg = regions[r.region];
+      if (r.recv.y === REPORT_YEAR) { reg.m[r.recv.m - 1][0]++; reg.m[r.recv.m - 1][1] += r.amt; }
+      if (!reg.w[monday]) reg.w[monday] = [0, 0];
+      reg.w[monday][0]++; reg.w[monday][1] += r.amt;
+      const day = ymd_(r.recv.y, r.recv.m, r.recv.d);
+      if (!reg.first || day < reg.first) reg.first = day;
+    });
+    out.weekly[key] = Object.keys(weeks).sort().map(k => [k, weeks[k].n, Object.keys(weeks[k].sch).length, round(weeks[k].amt), round(weeks[k].st)]);
+    out.monthSchools[key] = {};
+    Object.keys(monthSch).forEach(k => { out.monthSchools[key][k] = Object.keys(monthSch[k]).length; });
+    Object.keys(regions).forEach(k => {
+      regions[k].m.forEach(x => { x[1] = round(x[1]); });
+      Object.keys(regions[k].w).forEach(w => { regions[k].w[w][1] = round(regions[k].w[w][1]); });
+    });
+    out.regions[key] = regions;
+  });
+  return out;
 }
 
 // 시작일 + 기간(개월) - 1일로 만료일을 추정합니다
@@ -333,6 +378,7 @@ function aggregate(rawRows, leadRows, noteRows) {
 
   const all = finishAgg_(groups.all, startKeys);
   return {
+    ...weeklyData_(accepted),
     agg: { all, M: finishAgg_(groups.M, startKeys), G: finishAgg_(groups.G, startKeys) },
     lead: LEAD_REGIONS.map(k => leadMap[k]),
     leadSummary: {

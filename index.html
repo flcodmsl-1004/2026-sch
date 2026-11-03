@@ -32,8 +32,8 @@
 </sc-if>
 <sc-if value="{{ ready }}">
 <div style="min-height:100vh; background:#F7F8F9; padding:16px 32px 64px; box-sizing:border-box; display:flex; flex-direction:column; gap:20px;">
-  <nav aria-label="대시보드 메뉴" style="display:flex; gap:24px; border-bottom:1px solid #D9D9D9;">
-    <sc-for list="{{ navs }}" as="n" hint-placeholder-count="2">
+  <nav aria-label="대시보드 메뉴" style="display:flex; gap:16px; border-bottom:1px solid #D9D9D9; white-space:nowrap;">
+    <sc-for list="{{ navs }}" as="n" hint-placeholder-count="4">
       <a href="{{ n.href }}" aria-current="{{ n.current }}" style="padding:10px 2px; margin-bottom:-1px; font-size:15px; font-weight:{{ n.fw }}; color:{{ n.fg }}; border-bottom:2px solid {{ n.line }}; text-decoration:none;">{{ n.label }}</a>
     </sc-for>
   </nav>
@@ -292,8 +292,11 @@
     </div>
   </div>
 
-  <div style="display:flex; flex-direction:column; gap:6px; padding:24px 0 16px; border-bottom:1px solid rgba(33,33,33,0.2); margin-top:12px;">
-    <h2 style="margin:0; font-size:22px; font-weight:700;">인사이트 · 우선순위 제안</h2>
+  <div style="font-size:12px; color:#999; line-height:1.6;">판매개수 = 주문 건수 · 판매금액 = 예산/판매금액 열 · 정산금액 = 매쓰홀릭 배분액(본사계좌·학교장터는 전액) · 테크빌 배분 = 판매금액 − 정산금액 · 글잼 '매홀(계좌)'는 본사계좌로 통합 · 선도/AI중점 명단은 '리스트' 시트 2026년 기준</div>
+</sc-if>
+<sc-if value="{{ pageInsights }}">
+  <div style="display:flex; flex-direction:column; gap:6px;">
+    <h1 style="margin:0; font-size:24px; font-weight:700; line-height:1.3;">인사이트 · 우선순위 제안</h1>
     <div style="font-size:13px; color:#777;">P1 즉시 실행 · P2 다음 분기 · P3 운영 개선 · 수치는 두 솔루션 합산 기준 · 사람이 쓴 문구로, 시트의 인사이트 탭을 고쳐야 바뀝니다</div>
   </div>
 
@@ -315,8 +318,144 @@
       </div>
     </sc-for>
   </div>
+</sc-if>
+<sc-if value="{{ pageWeekly }}">
+  <sc-if value="{{ wMissing }}"><div role="alert" style="background:#FFF7E6; border:1px solid #FFD591; border-radius:10px; padding:12px 20px; font-size:13px; color:#D46B08;">주차별 데이터가 아직 없습니다. Apps Script를 새 버전으로 배포해 주세요.</div></sc-if>
+  <sc-if value="{{ wReady }}">
+  <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <h1 style="margin:0; font-size:24px; font-weight:700; line-height:1.3;">주차별</h1>
+      <div style="font-size:12px; color:#999;">마지막 갱신 {{ updatedAt }} · 구매 접수일 기준 · 주는 월요일~일요일{{ refreshNote }}</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="sub" size="sm" onClick="{{ wPrev }}" hint-size="auto,28px">이전 주</x-import>
+      <span style="font-size:14px; font-weight:600; white-space:nowrap;">{{ wLabel }}</span>
+      <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="sub" size="sm" onClick="{{ wNext }}" hint-size="auto,28px">다음 주</x-import>
+    </div>
+  </div>
 
-  <div style="font-size:12px; color:#999; line-height:1.6;">판매개수 = 주문 건수 · 판매금액 = 예산/판매금액 열 · 정산금액 = 매쓰홀릭 배분액(본사계좌·학교장터는 전액) · 테크빌 배분 = 판매금액 − 정산금액 · 글잼 '매홀(계좌)'는 본사계좌로 통합 · 선도/AI중점 명단은 '리스트' 시트 2026년 기준</div>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap:12px;">
+    <sc-for list="{{ wCards }}" as="c" hint-placeholder-count="2">
+      <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:10px;">
+        <div style="font-size:13px; color:#777; font-weight:500; display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:999px; background:{{ c.color }};"></span>{{ c.name }}</div>
+        <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;"><span style="font-size:28px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums;">{{ c.amt }}</span><span style="font-size:12px; color:#999;">판매금액</span></div>
+        <div style="font-size:13px; color:#555; font-variant-numeric:tabular-nums;">정산 {{ c.st }} · 구매학교 {{ c.sch }}교 · {{ c.n }}건</div>
+        <div style="font-size:12px; color:#999;">{{ c.delta }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+      <div style="font-size:16px; font-weight:700;">주차별 {{ wMetricLabel }}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <sc-for list="{{ wMetrics }}" as="o" hint-placeholder-count="3">
+          <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+        </sc-for>
+        <span style="width:1px; background:#D9D9D9; margin:0 4px;"></span>
+        <sc-for list="{{ wRanges }}" as="o" hint-placeholder-count="2">
+          <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+        </sc-for>
+      </div>
+    </div>
+    <sc-for list="{{ wPanels }}" as="p" hint-placeholder-count="2">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="font-size:13px; color:#555; display:flex; justify-content:space-between; gap:8px;"><span style="font-weight:600;">{{ p.name }}</span><span style="color:#999;">최대 {{ p.max }} · 차트마다 눈금이 다릅니다</span></div>
+        <div style="display:grid; grid-template-columns:repeat({{ wCols }}, minmax(0,1fr)); gap:{{ wGap }}; align-items:end; height:120px; border-bottom:1px solid #D9D9D9;">
+          <sc-for list="{{ p.bars }}" as="b" hint-placeholder-count="12">
+            <div title="{{ b.tip }}" style="height:100%; display:flex; align-items:flex-end; justify-content:center;"><div style="width:100%; max-width:24px; height:{{ b.h }}; background:{{ p.color }}; border-radius:3px 3px 0 0;"></div></div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <div style="display:grid; grid-template-columns:repeat({{ wCols }}, minmax(0,1fr)); gap:{{ wGap }}; margin-top:-10px;">
+      <sc-for list="{{ wAxis }}" as="a" hint-placeholder-count="12">
+        <span style="font-size:11px; color:#777; text-align:center; white-space:nowrap;">{{ a }}</span>
+      </sc-for>
+    </div>
+    <div style="font-size:12px; color:#999;">막대에 마우스를 올리면 판매금액, 정산금액, 구매학교 수를 볼 수 있습니다 · 글잼스쿨 11/2 이전 건은 결제일 자료가 없어 시작일로 추정</div>
+  </div>
+
+  <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+      <div style="font-size:16px; font-weight:700;">월별 주차 표</div>
+      <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="sub" size="sm" onClick="{{ wCsv }}" hint-size="auto,28px">전체 주차 CSV 내려받기</x-import>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+      <sc-for list="{{ wMonths }}" as="o" hint-placeholder-count="12">
+        <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+      </sc-for>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+      <sc-for list="{{ wSols }}" as="o" hint-placeholder-count="3">
+        <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+      </sc-for>
+    </div>
+    <div style="overflow-x:auto;">
+      <div style="min-width:620px;">
+        <div style="display:grid; grid-template-columns:minmax(170px,1.4fr) 72px 88px minmax(120px,1fr) minmax(120px,1fr); gap:12px; font-size:12px; color:#999; padding-bottom:8px;">
+          <span>주차</span><span style="text-align:right;">건수</span><span style="text-align:right;">구매학교</span><span style="text-align:right;">판매금액</span><span style="text-align:right;">정산금액</span>
+        </div>
+        <sc-for list="{{ wRows }}" as="r" hint-placeholder-count="5">
+          <div style="display:grid; grid-template-columns:minmax(170px,1.4fr) 72px 88px minmax(120px,1fr) minmax(120px,1fr); gap:12px; align-items:center; font-size:14px; padding:12px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums; background:{{ r.bg }};">
+            <span><b style="font-weight:600;">{{ r.label }}</b> <span style="font-size:12px; color:#999;">{{ r.range }}</span></span>
+            <span style="text-align:right;">{{ r.n }}</span><span style="text-align:right;">{{ r.sch }}</span><span style="text-align:right;">{{ r.amt }}</span><span style="text-align:right;">{{ r.st }}</span>
+          </div>
+        </sc-for>
+        <div style="display:grid; grid-template-columns:minmax(170px,1.4fr) 72px 88px minmax(120px,1fr) minmax(120px,1fr); gap:12px; font-size:14px; font-weight:700; padding:12px 0; border-top:1px solid rgba(33,33,33,0.4); font-variant-numeric:tabular-nums;">
+          <span>{{ wTotal.label }}</span><span style="text-align:right;">{{ wTotal.n }}</span><span style="text-align:right;">{{ wTotal.sch }}</span><span style="text-align:right;">{{ wTotal.amt }}</span><span style="text-align:right;">{{ wTotal.st }}</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px; color:#999;">주의 월요일이 속한 달로 묶어 5주인 달도 있습니다 · 구매학교 합계는 중복 없이 센 값이라 주별 합과 다를 수 있습니다 · 결제월 기준인 판매 현황의 월 합계와 다를 수 있습니다</div>
+  </div>
+
+  <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+    <div style="font-size:16px; font-weight:700;">지역별 구매 시기 <span style="font-size:12px; color:#999; font-weight:500;">· {{ hLabel }}</span></div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+      <sc-for list="{{ hUnits }}" as="o" hint-placeholder-count="2">
+        <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+      </sc-for>
+      <span style="width:1px; background:#D9D9D9; margin:0 4px;"></span>
+      <sc-for list="{{ hModes }}" as="o" hint-placeholder-count="2">
+        <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+      </sc-for>
+      <span style="width:1px; background:#D9D9D9; margin:0 4px;"></span>
+      <sc-for list="{{ hSols }}" as="o" hint-placeholder-count="3">
+        <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+      </sc-for>
+    </div>
+    <div style="overflow-x:auto;">
+      <div style="min-width:{{ hWidth }}; display:flex; flex-direction:column; gap:2px;">
+        <div style="display:grid; grid-template-columns:44px repeat({{ hCols }}, minmax(0,1fr)); gap:2px; font-size:11px; color:#777;">
+          <span></span>
+          <sc-for list="{{ hHead }}" as="a" hint-placeholder-count="12"><span style="text-align:center; white-space:nowrap;">{{ a }}</span></sc-for>
+        </div>
+        <sc-for list="{{ hRows }}" as="r" hint-placeholder-count="17">
+          <div style="display:grid; grid-template-columns:44px repeat({{ hCols }}, minmax(0,1fr)); gap:2px; align-items:center;">
+            <span style="font-size:13px; font-weight:600;">{{ r.k }}</span>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="12">
+              <div title="{{ c.tip }}" style="height:24px; border-radius:3px; background:{{ c.bg }}; color:{{ c.fg }}; font-size:11px; display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums;">{{ c.t }}</div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="font-size:12px; color:#999;">진할수록 많이 구매 · 칸에 마우스를 올리면 금액과 건수를 볼 수 있습니다 · 구매 시점으로 추정한 값으로, 실제 예산 배부일은 이보다 앞설 수 있습니다 · 올해 자료만 있어 해마다 반복되는 패턴인지는 아직 알 수 없습니다</div>
+    <div style="overflow-x:auto; margin-top:8px;">
+      <div style="min-width:620px;">
+        <div style="display:grid; grid-template-columns:48px 100px minmax(110px,1fr) 56px 110px 80px; gap:12px; font-size:12px; color:#999; padding-bottom:8px;">
+          <span>지역</span><span>첫 접수일</span><span>가장 많은 달</span><span style="text-align:right;">건수</span><span style="text-align:right;">판매금액</span><span>비고</span>
+        </div>
+        <sc-for list="{{ hTable }}" as="r" hint-placeholder-count="17">
+          <div style="display:grid; grid-template-columns:48px 100px minmax(110px,1fr) 56px 110px 80px; gap:12px; font-size:13px; padding:8px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums;">
+            <span style="font-weight:600;">{{ r.k }}</span><span>{{ r.first }}</span><span>{{ r.peak }}</span><span style="text-align:right;">{{ r.n }}</span><span style="text-align:right;">{{ r.amt }}</span><span style="color:#999;">{{ r.note }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
 </sc-if>
 <sc-if value="{{ pageExpiry }}">
   <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;">
@@ -392,13 +531,14 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycby0JVory4qMaKZ9I31ePOEkOZzhHYRkGKBDfY6t0s4DlyvkQD0bLgeZ7-iVOprKYlla/exec';
 const PW_KEY = 'dash-pw';
 const REFRESH_MS = 5 * 60 * 1000;
-const pageFromHash = () => location.hash === '#expiry' ? 'expiry' : 'sales';
+const PAGES = { '#weekly': 'weekly', '#expiry': 'expiry', '#insights': 'insights' };
+const pageFromHash = () => PAGES[location.hash] || 'sales';
 const readPw = () => { try { return sessionStorage.getItem(PW_KEY) || ''; } catch (e) { return ''; } };
 const savePw = v => { try { if (v) sessionStorage.setItem(PW_KEY, v); else sessionStorage.removeItem(PW_KEY); } catch (e) {} };
 const ERR = { denied: '비밀번호가 맞지 않습니다.', locked: '시도가 너무 많습니다. 5분 뒤 다시 입력해 주세요.', setup: 'Apps Script에 비밀번호가 아직 설정되지 않았습니다.' };
 
 class Component extends DCLogic {
-  state = { metric: this.props.defaultMetric ?? 'amt', sol: this.props.defaultSolution ?? 'all', data: null, busy: false, error: '', refreshFailed: false, page: pageFromHash(), ePeriod: '90', eSol: 'all', eRegion: 'all', eStatus: 'all', eq: '' };
+  state = { metric: this.props.defaultMetric ?? 'amt', sol: this.props.defaultSolution ?? 'all', data: null, busy: false, error: '', refreshFailed: false, page: pageFromHash(), ePeriod: '90', eSol: 'all', eRegion: 'all', eStatus: 'all', eq: '', wMetric: 'amt', wRange: '12', wBack: 0, wMonth: new Date().getMonth() + 1, wSol: 'all', hUnit: 'month', hMode: 'share', hSol: 'all' };
   onHash = () => this.setState({ page: pageFromHash() });
   onSearch = e => this.setState({ eq: e.target.value });
   downloadCsv = () => {
@@ -408,6 +548,109 @@ class Component extends DCLogic {
     const url = URL.createObjectURL(new Blob(['﻿' + [head.map(cell).join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url; a.download = '만료관리.csv'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  weeklyVals(data) {
+    if (!data.weekly) return { wMissing: true, wReady: false };
+    const { wMetric, wRange, wBack, wMonth, wSol, hUnit, hMode, hSol } = this.state;
+    const SOLS = { M: ['매쓰홀릭스쿨', '#1677FF'], G: ['글잼스쿨', '#389E0D'] };
+    const SOL_OPTS = [['all', '전체'], ['M', SOLS.M[0]], ['G', SOLS.G[0]]];
+    const opts = (cur, key, list) => list.map(([v, label]) => ({ label, variant: v === cur ? 'primary' : 'sub', pick: () => this.setState({ [key]: v }) }));
+    const pad = n => ('0' + n).slice(-2);
+    const iso = t => { const d = new Date(t); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); };
+    const DAY = 864e5;
+    const toTime = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+    const won = v => v.toLocaleString() + '원';
+    const short = v => v >= 1e8 ? (v / 1e8).toFixed(2) + '억' : v >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만원' : v.toLocaleString() + '원';
+
+    // 올해의 모든 주 (월요일 기준)
+    let t = Date.UTC(data.year, 0, 1);
+    while (new Date(t).getUTCDay() !== 1) t += DAY;
+    const weeks = [], counter = {};
+    for (; new Date(t).getUTCFullYear() === data.year; t += 7 * DAY) {
+      const m = new Date(t).getUTCMonth() + 1;
+      counter[m] = (counter[m] || 0) + 1;
+      const e = new Date(t + 6 * DAY);
+      weeks.push({ key: iso(t), m, label: m + '월 ' + counter[m] + '주차', range: m + '/' + new Date(t).getUTCDate() + '~' + (e.getUTCMonth() + 1) + '/' + e.getUTCDate(), axis: m + '/' + new Date(t).getUTCDate() });
+    }
+    const maps = {};
+    ['all', 'M', 'G'].forEach(k => { maps[k] = {}; data.weekly[k].forEach(r => { maps[k][r[0]] = r; }); });
+    const at = (sol, key) => { const r = maps[sol][key]; return r ? { n: r[1], sch: r[2], amt: r[3], st: r[4] } : { n: 0, sch: 0, amt: 0, st: 0 }; };
+
+    const now = new Date();
+    let today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const thisMon = iso(today - ((new Date(today).getUTCDay() + 6) % 7) * DAY);
+    let curIdx = weeks.findIndex(w => w.key === thisMon);
+    if (curIdx < 0) curIdx = thisMon < weeks[0].key ? 0 : weeks.length - 1;
+    const idx = Math.max(0, curIdx - wBack);
+    const week = weeks[idx], prev = weeks[idx - 1];
+
+    const wCards = ['M', 'G'].map(s => {
+      const c = at(s, week.key), p = prev ? at(s, prev.key) : null, d = p ? c.amt - p.amt : 0;
+      return { name: SOLS[s][0], color: SOLS[s][1], amt: won(c.amt), st: won(c.st), sch: c.sch, n: c.n, delta: !p ? '전주 자료 없음' : '전주 대비 ' + (d === 0 ? '변동 없음' : (d > 0 ? '+' : '-') + won(Math.abs(d))) };
+    });
+
+    const METRICS = { amt: ['판매금액', short], st: ['정산금액', short], sch: ['구매학교 수', v => v + '교'] };
+    const shown = wRange === '12' ? weeks.slice(Math.max(0, curIdx - 11), curIdx + 1) : weeks.slice(0, curIdx + 1);
+    const wPanels = ['M', 'G'].map(s => {
+      const vals = shown.map(w => at(s, w.key));
+      const top = Math.max(0, ...vals.map(v => v[wMetric]));
+      return {
+        name: SOLS[s][0], color: SOLS[s][1], max: METRICS[wMetric][1](top),
+        bars: shown.map((w, i) => { const v = vals[i]; return { tip: w.label + ' (' + w.range + ') · 판매 ' + won(v.amt) + ' · 정산 ' + won(v.st) + ' · 구매학교 ' + v.sch + '교 · ' + v.n + '건', h: v[wMetric] ? Math.max(v[wMetric] / (top || 1) * 100, 2) + '%' : '0%' }; }),
+      };
+    });
+    const wAxis = shown.map((w, i) => wRange === '12' ? w.axis : (i === 0 || w.m !== shown[i - 1].m ? w.m + '월' : ''));
+
+    const monthWeeks = weeks.filter(w => w.m === wMonth);
+    const wRows = monthWeeks.map(w => {
+      const c = at(wSol, w.key), future = w.key > thisMon && !c.n;
+      return { label: w.label, range: w.range, n: future ? '-' : c.n + '건', sch: future ? '-' : c.sch + '교', amt: future ? '-' : won(c.amt), st: future ? '-' : won(c.st), bg: w.key === thisMon ? '#F0F7FF' : 'transparent' };
+    });
+    const sum = key => monthWeeks.reduce((s, w) => s + at(wSol, w.key)[key], 0);
+    const wTotal = { label: wMonth + '월 합계', n: sum('n') + '건', sch: (data.monthSchools[wSol][data.year + '-' + pad(wMonth)] || 0) + '교', amt: won(sum('amt')), st: won(sum('st')) };
+
+    // 지역별 히트맵
+    const regs = data.regions[hSol];
+    const names = Object.keys(regs).map(k => ({ k, n: regs[k].m.reduce((s, x) => s + x[0], 0), amt: regs[k].m.reduce((s, x) => s + x[1], 0), r: regs[k] })).sort((a, b) => b.amt - a.amt);
+    const isMonth = hUnit === 'month';
+    const cols = isMonth ? Array.from({ length: 12 }, (_, i) => ({ head: i + 1 + '월', label: i + 1 + '월', get: r => r.m[i] })) : weeks.map((w, i) => ({ head: i === 0 || w.m !== weeks[i - 1].m ? w.m + '월' : '', label: w.label + ' (' + w.range + ')', get: r => r.w[w.key] || [0, 0] }));
+    const allMax = Math.max(1, ...names.flatMap(x => cols.map(c => c.get(x.r)[1])));
+    const hRows = names.map(x => ({
+      k: x.k,
+      cells: cols.map(c => {
+        const [n, amt] = c.get(x.r), share = x.amt ? amt / x.amt : 0, q = hMode === 'share' ? share : amt / allMax;
+        const alpha = amt ? Math.min((isMonth ? 0.1 : 0.15) + q * (hMode === 'share' && !isMonth ? 2.5 : 1.3), 1) : 0;
+        const pct = Math.round(share * 100);
+        return { tip: x.k + ' ' + c.label + ': ' + won(amt) + ' · ' + n + '건 · 시도 내 ' + pct + '%', bg: amt ? 'rgba(22,119,255,' + alpha + ')' : '#F7F8F9', fg: alpha >= 0.55 ? '#fff' : '#212121', t: isMonth && amt ? (hMode === 'share' ? (pct >= 20 ? pct + '%' : '') : (q >= 0.2 ? short(amt) : '')) : '' };
+      }),
+    }));
+    const hTable = names.map(x => {
+      const peak = x.r.m.reduce((b, v, i) => v[1] > x.r.m[b][1] ? i : b, 0);
+      return { k: x.k, first: x.r.first || '-', peak: x.amt ? peak + 1 + '월 (' + Math.round(x.r.m[peak][1] / x.amt * 100) + '%)' : '-', n: x.n + '건', amt: short(x.amt), note: x.n === 0 ? '구매 없음' : x.n < 10 ? '건수 적음' : '' };
+    });
+
+    this.wCsvRows = () => {
+      const rows = [['주차', '기간', '솔루션', '건수', '구매학교', '판매금액', '정산금액']];
+      weeks.forEach(w => ['all', 'M', 'G'].forEach(s => { const c = at(s, w.key); if (c.n) rows.push([w.label, w.range, s === 'all' ? '전체' : SOLS[s][0], c.n, c.sch, c.amt, c.st]); }));
+      return rows;
+    };
+
+    return {
+      wMissing: false, wReady: true, wLabel: week.label + ' (' + week.range + ')', wCards, wPanels, wAxis, wCols: shown.length, wGap: wRange === '12' ? '8px' : '2px',
+      wPrev: () => this.setState(s => ({ wBack: Math.min(s.wBack + 1, curIdx) })), wNext: () => this.setState(s => ({ wBack: Math.max(s.wBack - 1, 0) })),
+      wMetricLabel: METRICS[wMetric][0], wMetrics: opts(wMetric, 'wMetric', Object.keys(METRICS).map(k => [k, METRICS[k][0]])), wRanges: opts(wRange, 'wRange', [['12', '최근 12주'], ['all', '올해 전체']]),
+      wMonths: opts(wMonth, 'wMonth', Array.from({ length: 12 }, (_, i) => [i + 1, i + 1 + '월'])), wSols: opts(wSol, 'wSol', SOL_OPTS), wRows, wTotal, wCsv: this.wCsv,
+      hLabel: (isMonth ? '월별' : '주차별') + ' · ' + (hMode === 'share' ? '시도 합계 안에서의 비중' : '판매금액'), hUnits: opts(hUnit, 'hUnit', [['month', '월별'], ['week', '주차별']]), hModes: opts(hMode, 'hMode', [['share', '시도 내 비중'], ['amount', '금액']]), hSols: opts(hSol, 'hSol', SOL_OPTS),
+      hHead: cols.map(c => c.head), hRows, hTable, hCols: cols.length, hWidth: isMonth ? '620px' : '1000px',
+    };
+  }
+  wCsv = () => {
+    const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const text = this.wCsvRows().map(r => r.map(cell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = '주차별.csv'; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   expiryVals(data) {
@@ -559,9 +802,9 @@ class Component extends DCLogic {
     const warnText = data.warningCount ? '시트에서 확인이 필요한 행 ' + data.warningCount + '건은 집계에서 빠졌습니다: ' + data.warnings.map(w => w.tab + ' ' + w.row + '행(' + w.problem + ')').join(', ') + (data.warningCount > data.warnings.length ? ' 외' : '') : '';
 
     const page = this.state.page;
-    const navs = [['#sales', 'sales', '판매 현황'], ['#expiry', 'expiry', '만료 관리']].map(([href, key, label]) => ({ href, label, current: key === page ? 'page' : 'false', fw: key === page ? 700 : 500, fg: key === page ? BLUE : '#777', line: key === page ? BLUE : 'transparent' }));
+    const navs = [['#sales', 'sales', '판매 현황'], ['#weekly', 'weekly', '주차별'], ['#expiry', 'expiry', '만료 관리'], ['#insights', 'insights', '인사이트']].map(([href, key, label]) => ({ href, label, current: key === page ? 'page' : 'false', fw: key === page ? 700 : 500, fg: key === page ? BLUE : '#777', line: key === page ? BLUE : 'transparent' }));
 
-    return { ...this.expiryVals(data), navs, pageSales: page === 'sales', pageExpiry: page === 'expiry', locked: false, ready: true, subtitle: '매쓰홀릭스쿨 ' + data.counts.M + '건 + 글잼스쿨 ' + data.counts.G + '건 · 구매완료 · 실제 결제(정산)월 기준', updatedAt: data.updatedAt, refreshNote: refreshFailed ? ' · 최근 새로고침 실패, 이전 숫자 표시 중' : '', warnText, both: data.both, regionNote: '빨간색 = 하위 5개 지역(판매금액 기준)' + (zeroRegions.length ? ' · ' + zeroRegions.join('·') + ' 구매 0건' : ''), leadTotal: LS.total.toLocaleString(), leadBoth: LS.cntBoth, startCols: A.starts.length, metrics, sols, solLabel: solNames[sol], metricLabel: labels[m], metricTotal: fmt[m](T[m]), months, regions, kpis, solutions, channels, leading, leadKpis, levels, starts, days, day1: A.days[0], dows, periods, sizes, nostart: A.nostart, insights };
+    return { ...this.expiryVals(data), ...this.weeklyVals(data), navs, pageSales: page === 'sales', pageWeekly: page === 'weekly', pageExpiry: page === 'expiry', pageInsights: page === 'insights', locked: false, ready: true, subtitle: '매쓰홀릭스쿨 ' + data.counts.M + '건 + 글잼스쿨 ' + data.counts.G + '건 · 구매완료 · 실제 결제(정산)월 기준', updatedAt: data.updatedAt, refreshNote: refreshFailed ? ' · 최근 새로고침 실패, 이전 숫자 표시 중' : '', warnText, both: data.both, regionNote: '빨간색 = 하위 5개 지역(판매금액 기준)' + (zeroRegions.length ? ' · ' + zeroRegions.join('·') + ' 구매 0건' : ''), leadTotal: LS.total.toLocaleString(), leadBoth: LS.cntBoth, startCols: A.starts.length, metrics, sols, solLabel: solNames[sol], metricLabel: labels[m], metricTotal: fmt[m](T[m]), months, regions, kpis, solutions, channels, leading, leadKpis, levels, starts, days, day1: A.days[0], dows, periods, sizes, nostart: A.nostart, insights };
   }
 }
 </script>
