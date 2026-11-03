@@ -325,7 +325,7 @@
   <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;">
     <div style="display:flex; flex-direction:column; gap:6px;">
       <h1 style="margin:0; font-size:24px; font-weight:700; line-height:1.3;">주차별</h1>
-      <div style="font-size:12px; color:#999;">마지막 갱신 {{ updatedAt }} · 구매 접수일 기준 · 주는 월요일~일요일{{ refreshNote }}</div>
+      <div style="font-size:12px; color:#999;">마지막 갱신 {{ updatedAt }} · 실제 결제월 + 정산주차 기준{{ refreshNote }}</div>
     </div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="sub" size="sm" onClick="{{ wPrev }}" hint-size="auto,28px">이전 주</x-import>
@@ -373,7 +373,7 @@
         <span style="font-size:11px; color:#777; text-align:center; white-space:nowrap;">{{ a }}</span>
       </sc-for>
     </div>
-    <div style="font-size:12px; color:#999;">막대에 마우스를 올리면 판매금액, 정산금액, 구매학교 수를 볼 수 있습니다 · 글잼스쿨 11/2 이전 건은 결제일 자료가 없어 시작일로 추정</div>
+    <div style="font-size:12px; color:#999;">막대에 마우스를 올리면 판매금액, 정산금액, 구매학교 수를 볼 수 있습니다 · 글잼스쿨 11/2 이전 건은 주차 자료가 없어 막대에 나오지 않습니다 · 정산이 한 번에 묶이는 달은 한 주에 몰려 보입니다</div>
   </div>
 
   <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
@@ -398,7 +398,7 @@
         </div>
         <sc-for list="{{ wRows }}" as="r" hint-placeholder-count="5">
           <div style="display:grid; grid-template-columns:minmax(170px,1.4fr) 72px 88px minmax(120px,1fr) minmax(120px,1fr); gap:12px; align-items:center; font-size:14px; padding:12px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums; background:{{ r.bg }};">
-            <span><b style="font-weight:600;">{{ r.label }}</b> <span style="font-size:12px; color:#999;">{{ r.range }}</span></span>
+            <span><b style="font-weight:600;">{{ r.label }}</b></span>
             <span style="text-align:right;">{{ r.n }}</span><span style="text-align:right;">{{ r.sch }}</span><span style="text-align:right;">{{ r.amt }}</span><span style="text-align:right;">{{ r.st }}</span>
           </div>
         </sc-for>
@@ -407,7 +407,7 @@
         </div>
       </div>
     </div>
-    <div style="font-size:12px; color:#999;">주의 월요일이 속한 달로 묶어 5주인 달도 있습니다 · 구매학교 합계는 중복 없이 센 값이라 주별 합과 다를 수 있습니다 · 결제월 기준인 판매 현황의 월 합계와 다를 수 있습니다</div>
+    <div style="font-size:12px; color:#999;">월 합계는 판매 현황의 월별 값과 같습니다 · 구매학교 합계는 중복 없이 센 값이라 주별 합과 다를 수 있습니다 · 주차 구분 없음 = 주차 자료가 없는 글잼스쿨 11/2 이전 건 · 새 건은 날짜의 달과 주(월요일 시작)로 나뉩니다</div>
   </div>
 
   <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
@@ -441,11 +441,11 @@
         </sc-for>
       </div>
     </div>
-    <div style="font-size:12px; color:#999;">진할수록 많이 구매 · 칸에 마우스를 올리면 금액과 건수를 볼 수 있습니다 · 구매 시점으로 추정한 값으로, 실제 예산 배부일은 이보다 앞설 수 있습니다 · 올해 자료만 있어 해마다 반복되는 패턴인지는 아직 알 수 없습니다</div>
+    <div style="font-size:12px; color:#999;">진할수록 많이 구매 · 칸에 마우스를 올리면 금액과 건수를 볼 수 있습니다 · 결제월 기준 추정값으로, 실제 예산 배부일은 이보다 앞설 수 있습니다 · 올해 자료만 있어 해마다 반복되는 패턴인지는 아직 알 수 없습니다</div>
     <div style="overflow-x:auto; margin-top:8px;">
       <div style="min-width:620px;">
         <div style="display:grid; grid-template-columns:48px 100px minmax(110px,1fr) 56px 110px 80px; gap:12px; font-size:12px; color:#999; padding-bottom:8px;">
-          <span>지역</span><span>첫 접수일</span><span>가장 많은 달</span><span style="text-align:right;">건수</span><span style="text-align:right;">판매금액</span><span>비고</span>
+          <span>지역</span><span>첫 결제월</span><span>가장 많은 달</span><span style="text-align:right;">건수</span><span style="text-align:right;">판매금액</span><span>비고</span>
         </div>
         <sc-for list="{{ hTable }}" as="r" hint-placeholder-count="17">
           <div style="display:grid; grid-template-columns:48px 100px minmax(110px,1fr) 56px 110px 80px; gap:12px; font-size:13px; padding:8px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums;">
@@ -557,31 +557,29 @@ class Component extends DCLogic {
     const SOL_OPTS = [['all', '전체'], ['M', SOLS.M[0]], ['G', SOLS.G[0]]];
     const opts = (cur, key, list) => list.map(([v, label]) => ({ label, variant: v === cur ? 'primary' : 'sub', pick: () => this.setState({ [key]: v }) }));
     const pad = n => ('0' + n).slice(-2);
-    const iso = t => { const d = new Date(t); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); };
-    const DAY = 864e5;
-    const toTime = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
     const won = v => v.toLocaleString() + '원';
     const short = v => v >= 1e8 ? (v / 1e8).toFixed(2) + '억' : v >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만원' : v.toLocaleString() + '원';
 
-    // 올해의 모든 주 (월요일 기준)
-    let t = Date.UTC(data.year, 0, 1);
-    while (new Date(t).getUTCDay() !== 1) t += DAY;
-    const weeks = [], counter = {};
-    for (; new Date(t).getUTCFullYear() === data.year; t += 7 * DAY) {
-      const m = new Date(t).getUTCMonth() + 1;
-      counter[m] = (counter[m] || 0) + 1;
-      const e = new Date(t + 6 * DAY);
-      weeks.push({ key: iso(t), m, label: m + '월 ' + counter[m] + '주차', range: m + '/' + new Date(t).getUTCDate() + '~' + (e.getUTCMonth() + 1) + '/' + e.getUTCDate(), axis: m + '/' + new Date(t).getUTCDate() });
+    // 결제월별 주차 목록. 월요일 수와 원본 주차 중 큰 값까지 만듭니다.
+    const keyOf = (m, w) => data.year + '-' + pad(m) + '-' + w;
+    const firstMonday = (y, m) => (8 - new Date(Date.UTC(y, m - 1, 1)).getUTCDay()) % 7 + 1;
+    const maxWeek = {};
+    data.weekly.all.forEach(r => { const [, m, w] = r[0].split('-').map(Number); maxWeek[m] = Math.max(maxWeek[m] || 0, w); });
+    const weeks = [];
+    for (let m = 1; m <= 12; m++) {
+      const days = new Date(Date.UTC(data.year, m, 0)).getUTCDate();
+      const mondays = Math.floor((days - firstMonday(data.year, m)) / 7) + 1;
+      for (let w = 1; w <= Math.max(mondays, maxWeek[m] || 0); w++) weeks.push({ key: keyOf(m, w), m, w, label: m + '월 ' + w + '주차', axis: m + '월 ' + w + '주' });
     }
     const maps = {};
     ['all', 'M', 'G'].forEach(k => { maps[k] = {}; data.weekly[k].forEach(r => { maps[k][r[0]] = r; }); });
     const at = (sol, key) => { const r = maps[sol][key]; return r ? { n: r[1], sch: r[2], amt: r[3], st: r[4] } : { n: 0, sch: 0, amt: 0, st: 0 }; };
 
     const now = new Date();
-    let today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const thisMon = iso(today - ((new Date(today).getUTCDay() + 6) % 7) * DAY);
-    let curIdx = weeks.findIndex(w => w.key === thisMon);
-    if (curIdx < 0) curIdx = thisMon < weeks[0].key ? 0 : weeks.length - 1;
+    const fm = firstMonday(now.getFullYear(), now.getMonth() + 1);
+    const curKey = keyOf(now.getMonth() + 1, now.getDate() < fm ? 1 : Math.floor((now.getDate() - fm) / 7) + 1);
+    let curIdx = now.getFullYear() === data.year ? weeks.findIndex(w => w.key === curKey) : -1;
+    if (curIdx < 0) curIdx = now.getFullYear() < data.year ? 0 : weeks.length - 1;
     const idx = Math.max(0, curIdx - wBack);
     const week = weeks[idx], prev = weeks[idx - 1];
 
@@ -597,24 +595,26 @@ class Component extends DCLogic {
       const top = Math.max(0, ...vals.map(v => v[wMetric]));
       return {
         name: SOLS[s][0], color: SOLS[s][1], max: METRICS[wMetric][1](top),
-        bars: shown.map((w, i) => { const v = vals[i]; return { tip: w.label + ' (' + w.range + ') · 판매 ' + won(v.amt) + ' · 정산 ' + won(v.st) + ' · 구매학교 ' + v.sch + '교 · ' + v.n + '건', h: v[wMetric] ? Math.max(v[wMetric] / (top || 1) * 100, 2) + '%' : '0%' }; }),
+        bars: shown.map((w, i) => { const v = vals[i]; return { tip: w.label + ' · 판매 ' + won(v.amt) + ' · 정산 ' + won(v.st) + ' · 구매학교 ' + v.sch + '교 · ' + v.n + '건', h: v[wMetric] ? Math.max(v[wMetric] / (top || 1) * 100, 2) + '%' : '0%' }; }),
       };
     });
     const wAxis = shown.map((w, i) => wRange === '12' ? w.axis : (i === 0 || w.m !== shown[i - 1].m ? w.m + '월' : ''));
 
     const monthWeeks = weeks.filter(w => w.m === wMonth);
     const wRows = monthWeeks.map(w => {
-      const c = at(wSol, w.key), future = w.key > thisMon && !c.n;
-      return { label: w.label, range: w.range, n: future ? '-' : c.n + '건', sch: future ? '-' : c.sch + '교', amt: future ? '-' : won(c.amt), st: future ? '-' : won(c.st), bg: w.key === thisMon ? '#F0F7FF' : 'transparent' };
+      const c = at(wSol, w.key), future = weeks.indexOf(w) > curIdx && !c.n;
+      return { label: w.label, n: future ? '-' : c.n + '건', sch: future ? '-' : c.sch + '교', amt: future ? '-' : won(c.amt), st: future ? '-' : won(c.st), bg: w.key === curKey ? '#F0F7FF' : 'transparent' };
     });
-    const sum = key => monthWeeks.reduce((s, w) => s + at(wSol, w.key)[key], 0);
+    const noWeek = at(wSol, keyOf(wMonth, 0));
+    if (noWeek.n) wRows.push({ label: wMonth + '월 주차 구분 없음', n: noWeek.n + '건', sch: noWeek.sch + '교', amt: won(noWeek.amt), st: won(noWeek.st), bg: 'transparent' });
+    const sum = key => monthWeeks.reduce((s, w) => s + at(wSol, w.key)[key], noWeek[key]);
     const wTotal = { label: wMonth + '월 합계', n: sum('n') + '건', sch: (data.monthSchools[wSol][data.year + '-' + pad(wMonth)] || 0) + '교', amt: won(sum('amt')), st: won(sum('st')) };
 
     // 지역별 히트맵
     const regs = data.regions[hSol];
     const names = Object.keys(regs).map(k => ({ k, n: regs[k].m.reduce((s, x) => s + x[0], 0), amt: regs[k].m.reduce((s, x) => s + x[1], 0), r: regs[k] })).sort((a, b) => b.amt - a.amt);
     const isMonth = hUnit === 'month';
-    const cols = isMonth ? Array.from({ length: 12 }, (_, i) => ({ head: i + 1 + '월', label: i + 1 + '월', get: r => r.m[i] })) : weeks.map((w, i) => ({ head: i === 0 || w.m !== weeks[i - 1].m ? w.m + '월' : '', label: w.label + ' (' + w.range + ')', get: r => r.w[w.key] || [0, 0] }));
+    const cols = isMonth ? Array.from({ length: 12 }, (_, i) => ({ head: i + 1 + '월', label: i + 1 + '월', get: r => r.m[i] })) : weeks.map((w, i) => ({ head: i === 0 || w.m !== weeks[i - 1].m ? w.m + '월' : '', label: w.label, get: r => r.w[w.key] || [0, 0] }));
     const allMax = Math.max(1, ...names.flatMap(x => cols.map(c => c.get(x.r)[1])));
     const hRows = names.map(x => ({
       k: x.k,
@@ -627,17 +627,21 @@ class Component extends DCLogic {
     }));
     const hTable = names.map(x => {
       const peak = x.r.m.reduce((b, v, i) => v[1] > x.r.m[b][1] ? i : b, 0);
-      return { k: x.k, first: x.r.first || '-', peak: x.amt ? peak + 1 + '월 (' + Math.round(x.r.m[peak][1] / x.amt * 100) + '%)' : '-', n: x.n + '건', amt: short(x.amt), note: x.n === 0 ? '구매 없음' : x.n < 10 ? '건수 적음' : '' };
+      return { k: x.k, first: x.r.first ? Number(x.r.first.slice(5)) + '월' : '-', peak: x.amt ? peak + 1 + '월 (' + Math.round(x.r.m[peak][1] / x.amt * 100) + '%)' : '-', n: x.n + '건', amt: short(x.amt), note: x.n === 0 ? '구매 없음' : x.n < 10 ? '건수 적음' : '' };
     });
 
     this.wCsvRows = () => {
-      const rows = [['주차', '기간', '솔루션', '건수', '구매학교', '판매금액', '정산금액']];
-      weeks.forEach(w => ['all', 'M', 'G'].forEach(s => { const c = at(s, w.key); if (c.n) rows.push([w.label, w.range, s === 'all' ? '전체' : SOLS[s][0], c.n, c.sch, c.amt, c.st]); }));
+      const rows = [['주차', '솔루션', '건수', '구매학교', '판매금액', '정산금액']];
+      const add = (label, key) => ['all', 'M', 'G'].forEach(s => { const c = at(s, key); if (c.n) rows.push([label, s === 'all' ? '전체' : SOLS[s][0], c.n, c.sch, c.amt, c.st]); });
+      for (let m = 1; m <= 12; m++) {
+        weeks.filter(w => w.m === m).forEach(w => add(w.label, w.key));
+        add(m + '월 주차 구분 없음', keyOf(m, 0));
+      }
       return rows;
     };
 
     return {
-      wMissing: false, wReady: true, wLabel: week.label + ' (' + week.range + ')', wCards, wPanels, wAxis, wCols: shown.length, wGap: wRange === '12' ? '8px' : '2px',
+      wMissing: false, wReady: true, wLabel: week.label, wCards, wPanels, wAxis, wCols: shown.length, wGap: wRange === '12' ? '8px' : '2px',
       wPrev: () => this.setState(s => ({ wBack: Math.min(s.wBack + 1, curIdx) })), wNext: () => this.setState(s => ({ wBack: Math.max(s.wBack - 1, 0) })),
       wMetricLabel: METRICS[wMetric][0], wMetrics: opts(wMetric, 'wMetric', Object.keys(METRICS).map(k => [k, METRICS[k][0]])), wRanges: opts(wRange, 'wRange', [['12', '최근 12주'], ['all', '올해 전체']]),
       wMonths: opts(wMonth, 'wMonth', Array.from({ length: 12 }, (_, i) => [i + 1, i + 1 + '월'])), wSols: opts(wSol, 'wSol', SOL_OPTS), wRows, wTotal, wCsv: this.wCsv,

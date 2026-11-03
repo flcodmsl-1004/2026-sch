@@ -200,7 +200,8 @@ function normalizeRow_(raw) {
       level: str_(raw['학교급']),
       end: parseDate_(raw['만료일']),
       endRaw: str_(raw['만료일']),
-      recv: parseDate_(raw['접수일']) || date, // 접수일이 없으면 날짜로 주차를 계산
+      // 기존데이터는 원본의 정산주차를 쓰고(글잼 과거 건은 없음 = 0), 새 건은 날짜로 계산
+      week: parseNum_(raw['정산주차']) || (raw.__tab === BASE_TAB ? 0 : weekOfMonth_(date)),
     },
   };
 }
@@ -209,14 +210,13 @@ function ymd_(y, m, d) {
   return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
 }
 
-// 그 주의 월요일 (주차는 월요일~일요일)
-function mondayOf_(d) {
-  const dt = new Date(Date.UTC(d.y, d.m - 1, d.d));
-  dt.setUTCDate(dt.getUTCDate() - (dt.getUTCDay() + 6) % 7);
-  return ymd_(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+// 그 달의 몇 번째 주인지 (월요일 시작, 첫 월요일 전 날짜는 1주차)
+function weekOfMonth_(d) {
+  const firstMonday = (8 - new Date(Date.UTC(d.y, d.m - 1, 1)).getUTCDay()) % 7 + 1;
+  return d.d < firstMonday ? 1 : Math.floor((d.d - firstMonday) / 7) + 1;
 }
 
-// 접수일 기준 주차별·시도별 합계. 학교별 행은 포함하지 않습니다.
+// 결제월·정산주차 기준 주차별·시도별 합계. 학교별 행은 포함하지 않습니다.
 function weeklyData_(rows) {
   const out = { year: REPORT_YEAR, weekly: {}, monthSchools: {}, regions: {} };
   const round = v => Math.round(v);
@@ -225,21 +225,20 @@ function weeklyData_(rows) {
     const weeks = {}, monthSch = {}, regions = {};
     REGIONS.forEach(k => { regions[k] = { m: Array.from({ length: 12 }, () => [0, 0]), w: {}, first: '' }; });
     picked.forEach(r => {
-      const monday = mondayOf_(r.recv);
+      const ym = REPORT_YEAR + '-' + ('0' + r.month).slice(-2);
+      const weekKey = ym + '-' + r.week;
       const school = r.school + '|' + r.region;
-      if (!weeks[monday]) weeks[monday] = { n: 0, sch: {}, amt: 0, st: 0 };
-      const w = weeks[monday];
+      if (!weeks[weekKey]) weeks[weekKey] = { n: 0, sch: {}, amt: 0, st: 0 };
+      const w = weeks[weekKey];
       w.n++; w.sch[school] = true; w.amt += r.amt; w.st += r.st;
-      const ym = monday.slice(0, 7);
       if (!monthSch[ym]) monthSch[ym] = {};
       monthSch[ym][school] = true;
       if (!regions[r.region]) regions[r.region] = { m: Array.from({ length: 12 }, () => [0, 0]), w: {}, first: '' };
       const reg = regions[r.region];
-      if (r.recv.y === REPORT_YEAR) { reg.m[r.recv.m - 1][0]++; reg.m[r.recv.m - 1][1] += r.amt; }
-      if (!reg.w[monday]) reg.w[monday] = [0, 0];
-      reg.w[monday][0]++; reg.w[monday][1] += r.amt;
-      const day = ymd_(r.recv.y, r.recv.m, r.recv.d);
-      if (!reg.first || day < reg.first) reg.first = day;
+      reg.m[r.month - 1][0]++; reg.m[r.month - 1][1] += r.amt;
+      if (!reg.w[weekKey]) reg.w[weekKey] = [0, 0];
+      reg.w[weekKey][0]++; reg.w[weekKey][1] += r.amt;
+      if (!reg.first || ym < reg.first) reg.first = ym;
     });
     out.weekly[key] = Object.keys(weeks).sort().map(k => [k, weeks[k].n, Object.keys(weeks[k].sch).length, round(weeks[k].amt), round(weeks[k].st)]);
     out.monthSchools[key] = {};
