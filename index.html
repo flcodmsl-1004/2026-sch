@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>판매현황 대시보드</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/matholic-design-system-e6d31222-91d3-47b9-aebe-84a65a8b8cf0/fonts/suit.css">
+  <link rel="stylesheet" href="_ds/matholic-design-system-e6d31222-91d3-47b9-aebe-84a65a8b8cf0/colors_and_type.css">
+  <link rel="stylesheet" href="_ds/matholic-design-system-e6d31222-91d3-47b9-aebe-84a65a8b8cf0/styles.css">
+  <script src="_ds/matholic-design-system-e6d31222-91d3-47b9-aebe-84a65a8b8cf0/_ds_bundle.js"></script>
+  <style>
+    body { margin:0; background:#F7F8F9; font-family:'SUIT Variable','SUIT',sans-serif; color:#212121; letter-spacing:-0.005em; }
+    a { color:#1677FF; text-decoration:none; } a:hover { text-decoration:underline; }
+  </style>
+</helmet>
+<sc-if value="{{ locked }}">
+<div style="min-height:100vh; background:#F7F8F9; display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;">
+  <form onSubmit="{{ submit }}" style="width:100%; max-width:360px; background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:24px; display:flex; flex-direction:column; gap:12px; box-sizing:border-box;">
+    <h1 style="margin:0; font-size:20px; font-weight:700;">2026 솔루션 판매 현황</h1>
+    <label for="dash-pw" style="font-size:13px; color:#777;">비밀번호를 입력하면 대시보드가 열립니다.</label>
+    <input id="dash-pw" name="pw" type="password" autocomplete="current-password" autofocus style="height:40px; border:1px solid #D9D9D9; border-radius:6px; padding:0 12px; font-size:16px; font-family:inherit; box-sizing:border-box;">
+    <sc-if value="{{ error }}"><div role="alert" style="font-size:13px; color:#FB1A18; line-height:1.5;">{{ error }}</div></sc-if>
+    <button type="submit" disabled="{{ busy }}" style="height:40px; border:0; border-radius:6px; background:#1677FF; color:#fff; font-size:14px; font-weight:600; font-family:inherit; cursor:pointer;">{{ busyLabel }}</button>
+  </form>
+</div>
+</sc-if>
+<sc-if value="{{ ready }}">
+<div style="min-height:100vh; background:#F7F8F9; padding:32px 32px 64px; box-sizing:border-box; display:flex; flex-direction:column; gap:20px;">
+
+  <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; padding-bottom:16px; border-bottom:1px solid rgba(33,33,33,0.2);">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div style="font-size:13px; color:#777; font-weight:500;">{{ subtitle }}</div>
+      <h1 style="margin:0; font-size:24px; font-weight:700; line-height:1.3;">2026 솔루션 판매 현황</h1>
+      <div style="font-size:12px; color:#999;">마지막 갱신 {{ updatedAt }} · 5분마다 자동 새로고침{{ refreshNote }}</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span style="font-size:13px; color:#777; width:56px; text-align:right;">솔루션</span>
+        <div style="display:flex; gap:8px; white-space:nowrap;">
+          <sc-for list="{{ sols }}" as="m" hint-placeholder-count="3">
+            <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ m.variant }}" size="sm" onClick="{{ m.pick }}" hint-size="auto,28px">{{ m.label }}</x-import>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span style="font-size:13px; color:#777; width:56px; text-align:right;">차트 지표</span>
+        <div style="display:flex; gap:8px; white-space:nowrap;">
+          <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="5">
+            <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ m.variant }}" size="sm" onClick="{{ m.pick }}" hint-size="auto,28px">{{ m.label }}</x-import>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ warnText }}">
+    <div role="alert" style="background:#FFF7E6; border:1px solid #FFD591; border-radius:10px; padding:12px 20px; font-size:13px; color:#D46B08; line-height:1.6;">{{ warnText }}</div>
+  </sc-if>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap:12px;">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6">
+      <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:13px; color:#777; font-weight:500;">{{ k.label }}</div>
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <span style="font-size:28px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums;">{{ k.value }}</span>
+          <span style="font-size:14px; color:#555; font-weight:600;">{{ k.unit }}</span>
+        </div>
+        <div style="font-size:12px; color:#999;">{{ k.sub }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:12px;">
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:16px; font-weight:700;">솔루션별</div>
+        <span style="font-size:12px; color:#999;">양쪽 모두 구매 {{ both }}교</span>
+      </div>
+      <div style="display:flex; height:12px; border-radius:6px; overflow:hidden; gap:2px;">
+        <sc-for list="{{ solutions }}" as="s" hint-placeholder-count="2">
+          <div style="width:{{ s.w }}; min-width:4px; background:{{ s.color }};"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+        <div style="display:grid; grid-template-columns:minmax(0,1.3fr) repeat(4, minmax(0,1fr)); gap:8px; font-size:12px; color:#999; padding-bottom:8px;">
+          <span>솔루션</span><span style="text-align:right;">판매건수</span><span style="text-align:right;">판매금액</span><span style="text-align:right;">정산금액</span><span style="text-align:right;">테크빌 배분</span>
+        </div>
+        <sc-for list="{{ solutions }}" as="s" hint-placeholder-count="2">
+          <div style="display:grid; grid-template-columns:minmax(0,1.3fr) repeat(4, minmax(0,1fr)); gap:8px; font-size:14px; padding:12px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums;">
+            <span style="display:flex; align-items:center; gap:8px; font-weight:600;"><span style="width:8px; height:8px; border-radius:999px; background:{{ s.color }};"></span>{{ s.name }}</span>
+            <span style="text-align:right;">{{ s.n }}</span><span style="text-align:right;">{{ s.amt }}</span><span style="text-align:right; font-weight:600;">{{ s.st }}</span><span style="text-align:right; color:#777;">{{ s.tv }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:12px; color:#999;">글잼스쿨 테크빌 기존 건은 배분 미기재 → 매쓰홀릭스쿨 테크빌 평균 배분율 적용 추정</div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:16px; font-weight:700;">구매처별 <span style="font-size:12px; color:#999; font-weight:500;">· {{ solLabel }}</span></div>
+        <span style="font-size:12px; color:#999;">정산율 = 정산금액 ÷ 판매금액</span>
+      </div>
+      <div style="display:flex; height:12px; border-radius:6px; overflow:hidden; gap:2px;">
+        <sc-for list="{{ channels }}" as="c" hint-placeholder-count="3">
+          <div style="width:{{ c.w }}; min-width:4px; background:{{ c.color }};"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+        <div style="display:grid; grid-template-columns:minmax(0,1.1fr) repeat(5, minmax(0,1fr)); gap:8px; font-size:12px; color:#999; padding-bottom:8px;">
+          <span>구매처</span><span style="text-align:right;">건수</span><span style="text-align:right;">판매금액</span><span style="text-align:right;">정산금액</span><span style="text-align:right;">테크빌 배분</span><span style="text-align:right;">정산율</span>
+        </div>
+        <sc-for list="{{ channels }}" as="c" hint-placeholder-count="3">
+          <div style="display:grid; grid-template-columns:minmax(0,1.1fr) repeat(5, minmax(0,1fr)); gap:8px; font-size:14px; padding:12px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums;">
+            <span style="display:flex; align-items:center; gap:8px; font-weight:600;"><span style="width:8px; height:8px; border-radius:999px; background:{{ c.color }};"></span>{{ c.name }}</span>
+            <span style="text-align:right;">{{ c.n }}</span><span style="text-align:right;">{{ c.amt }}</span><span style="text-align:right; font-weight:600;">{{ c.st }}</span><span style="text-align:right; color:#777;">{{ c.tv }}</span><span style="text-align:right; font-weight:600;">{{ c.rate }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <div style="font-size:16px; font-weight:700;">월별 {{ metricLabel }} <span style="font-size:12px; color:#999; font-weight:500;">· {{ solLabel }} · 실제 결제(정산)월 기준</span></div>
+      <span style="font-size:12px; color:#999;">합계 {{ metricTotal }}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:8px; align-items:end; height:220px;">
+      <sc-for list="{{ months }}" as="b" hint-placeholder-count="12">
+        <div style="display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:6px; height:100%;">
+          <span style="font-size:12px; color:#555; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap;">{{ b.v }}</span>
+          <div style="width:100%; max-width:56px; height:{{ b.h }}; min-height:2px; background:{{ b.color }}; border-radius:4px 4px 0 0;"></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:8px; border-top:1px solid #D9D9D9; padding-top:8px;">
+      <sc-for list="{{ months }}" as="b" hint-placeholder-count="12">
+        <span style="font-size:12px; color:#777; text-align:center;">{{ b.k }}</span>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:12px;">
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:16px; font-weight:700; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px;"><span>지역별 {{ metricLabel }}</span><span style="font-size:12px; color:#999; font-weight:500; white-space:nowrap;">· {{ solLabel }}</span></div>
+        <span style="font-size:12px; color:#999;">구매학교 수</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <sc-for list="{{ regions }}" as="r" hint-placeholder-count="17">
+          <div style="display:grid; grid-template-columns:40px minmax(0,1fr) 72px 40px; gap:12px; align-items:center; font-size:13px; font-variant-numeric:tabular-nums;">
+            <span style="font-weight:600;">{{ r.k }}</span>
+            <div style="height:16px; background:#F7F8F9; border-radius:4px; overflow:hidden;"><div style="height:100%; width:{{ r.w }}; background:{{ r.color }}; border-radius:4px;"></div></div>
+            <span style="text-align:right; color:#555;">{{ r.v }}</span>
+            <span style="text-align:right; color:#999;">{{ r.sch }}교</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:12px; color:#999;">{{ regionNote }}</div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:16px; font-weight:700;">디지털선도 · AI중점학교 침투율</div>
+        <span style="font-size:12px; color:#999;">2026 명단 {{ leadTotal }}교 · 침투율 낮은 순</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">
+        <sc-for list="{{ leadKpis }}" as="k" hint-placeholder-count="3">
+          <div style="background:#F7F8F9; border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:12px; color:#777;">{{ k.label }}</span>
+            <span style="font-size:18px; font-weight:700; font-variant-numeric:tabular-nums;">{{ k.value }}</span>
+            <span style="font-size:12px; color:#999;">{{ k.sub }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+        <div style="display:grid; grid-template-columns:40px minmax(0,1fr) 56px 56px 56px 52px; gap:8px; font-size:12px; color:#999; padding-bottom:6px;">
+          <span>지역</span><span>침투율</span><span style="text-align:right;">선도</span><span style="text-align:right;">AI중점</span><span style="text-align:right;">구매</span><span style="text-align:right;">미구매</span>
+        </div>
+        <sc-for list="{{ leading }}" as="l" hint-placeholder-count="17">
+          <div style="display:grid; grid-template-columns:40px minmax(0,1fr) 56px 56px 56px 52px; gap:8px; align-items:center; font-size:13px; padding:5px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums;">
+            <span style="font-weight:600;">{{ l.k }}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="flex:1; height:10px; background:#F7F8F9; border-radius:3px; overflow:hidden;"><div style="height:100%; width:{{ l.w }}; min-width:2px; background:{{ l.color }};"></div></div>
+              <span style="width:40px; text-align:right; font-weight:600; color:{{ l.color }};">{{ l.rate }}</span>
+            </div>
+            <span style="text-align:right; color:#555;">{{ l.hl }}/{{ l.lead }}</span>
+            <span style="text-align:right; color:#555;">{{ l.ha }}/{{ l.ai }}</span>
+            <span style="text-align:right; font-weight:600;">{{ l.hit }}</span>
+            <span style="text-align:right; color:#999;">{{ l.gap }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size:12px; color:#999;">선도·AI중점 열 = 구매교/명단교 (양쪽 지정 {{ leadBoth }}교는 두 열 모두 포함) · 학교명+지역 일치 기준</div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px;">
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:16px; font-weight:700;">학교급별 <span style="font-size:12px; color:#999; font-weight:500;">· 판매금액</span></div>
+      <div style="display:flex; height:12px; border-radius:6px; overflow:hidden; gap:2px;">
+        <sc-for list="{{ levels }}" as="l" hint-placeholder-count="4">
+          <div style="width:{{ l.w }}; background:{{ l.color }};"></div>
+        </sc-for>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;">
+        <sc-for list="{{ levels }}" as="l" hint-placeholder-count="4">
+          <div style="display:flex; flex-direction:column; gap:2px; font-size:12px; color:#777;">
+            <span style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:999px; background:{{ l.color }};"></span>{{ l.k }}</span>
+            <b style="font-size:15px; color:#212121;">{{ l.v }}</b>
+            <span>{{ l.n }}건 · {{ l.share }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:16px; font-weight:700;">사용 시작월 <span style="font-size:12px; color:#999; font-weight:500;">· 건수</span></div>
+      <div style="display:grid; grid-template-columns:repeat({{ startCols }}, minmax(0,1fr)); gap:3px; align-items:end; height:140px;">
+        <sc-for list="{{ starts }}" as="b" hint-placeholder-count="15">
+          <div style="display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:4px; height:100%;">
+            <span style="font-size:11px; color:#555; font-variant-numeric:tabular-nums;">{{ b.n }}</span>
+            <div style="width:100%; height:{{ b.h }}; min-height:2px; background:{{ b.color }}; border-radius:3px 3px 0 0;"></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat({{ startCols }}, minmax(0,1fr)); gap:3px; border-top:1px solid #D9D9D9; padding-top:6px;">
+        <sc-for list="{{ starts }}" as="b" hint-placeholder-count="15">
+          <span style="font-size:11px; color:#777; text-align:center; line-height:1.2;">{{ b.k }}</span>
+        </sc-for>
+      </div>
+      <div style="font-size:12px; color:#999;">25.x = 26년 결제 전 선사용 · 시작일 미기재 {{ nostart }}건 제외</div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+      <div style="font-size:16px; font-weight:700;">시작일 패턴 <span style="font-size:12px; color:#999; font-weight:500;">· 일자 / 요일</span></div>
+      <div style="display:grid; grid-template-columns:repeat(31, minmax(0,1fr)); gap:2px; align-items:end; height:80px;">
+        <sc-for list="{{ days }}" as="b" hint-placeholder-count="31">
+          <div style="height:{{ b.h }}; min-height:2px; background:{{ b.color }}; border-radius:2px 2px 0 0;"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:#777; border-top:1px solid #D9D9D9; padding-top:6px;"><span>1일 ({{ day1 }}건)</span><span>15일</span><span>31일</span></div>
+      <div style="display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px; margin-top:4px;">
+        <sc-for list="{{ dows }}" as="w" hint-placeholder-count="7">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 0; border-radius:6px; background:{{ w.bg }}; border:1px solid {{ w.bd }};">
+            <span style="font-size:12px; color:#777;">{{ w.k }}</span>
+            <b style="font-size:15px; color:{{ w.fg }};">{{ w.n }}</b>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size:16px; font-weight:700;">기간 · 인원 <span style="font-size:12px; color:#999; font-weight:500;">· 건수 / 판매금액 비중</span></div>
+      <div style="font-size:12px; color:#777; font-weight:600; margin-top:4px;">사용 기간</div>
+      <sc-for list="{{ periods }}" as="p" hint-placeholder-count="4">
+        <div style="display:grid; grid-template-columns:76px minmax(0,1fr) 112px; gap:8px; align-items:center; font-size:13px; font-variant-numeric:tabular-nums;">
+          <span style="white-space:nowrap;">{{ p.k }}</span>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <div style="height:6px; width:{{ p.wn }}; background:#D9D9D9; border-radius:3px;"></div>
+            <div style="height:6px; width:{{ p.wa }}; background:#1677FF; border-radius:3px;"></div>
+          </div>
+          <span style="text-align:right; color:#555; white-space:nowrap;">{{ p.sn }} / <b style="color:#1677FF;">{{ p.sa }}</b></span>
+        </div>
+      </sc-for>
+      <div style="font-size:12px; color:#777; font-weight:600; margin-top:8px;">인원 규모</div>
+      <sc-for list="{{ sizes }}" as="p" hint-placeholder-count="4">
+        <div style="display:grid; grid-template-columns:76px minmax(0,1fr) 112px; gap:8px; align-items:center; font-size:13px; font-variant-numeric:tabular-nums;">
+          <span style="white-space:nowrap;">{{ p.k }}</span>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <div style="height:6px; width:{{ p.wn }}; background:#D9D9D9; border-radius:3px;"></div>
+            <div style="height:6px; width:{{ p.wa }}; background:#1677FF; border-radius:3px;"></div>
+          </div>
+          <span style="text-align:right; color:#555; white-space:nowrap;">{{ p.sn }} / <b style="color:#1677FF;">{{ p.sa }}</b></span>
+        </div>
+      </sc-for>
+      <div style="display:flex; gap:12px; font-size:11px; color:#999; margin-top:4px;">
+        <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px; height:6px; background:#D9D9D9; border-radius:2px;"></span>건수 비중</span>
+        <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px; height:6px; background:#1677FF; border-radius:2px;"></span>판매금액 비중</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:6px; padding:24px 0 16px; border-bottom:1px solid rgba(33,33,33,0.2); margin-top:12px;">
+    <h2 style="margin:0; font-size:22px; font-weight:700;">인사이트 · 우선순위 제안</h2>
+    <div style="font-size:13px; color:#777;">P1 즉시 실행 · P2 다음 분기 · P3 운영 개선 · 수치는 두 솔루션 합산 기준 · 사람이 쓴 문구로, 시트의 인사이트 탭을 고쳐야 바뀝니다</div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <sc-for list="{{ insights }}" as="i" hint-placeholder-count="10">
+      <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:grid; grid-template-columns:64px minmax(0,1fr) minmax(0,1.1fr); gap:20px; align-items:start;">
+        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+          <span style="font-size:13px; font-weight:700; color:{{ i.fg }}; background:{{ i.bg }}; border:1px solid {{ i.bd }}; border-radius:6px; padding:3px 8px;">{{ i.p }}</span>
+          <span style="font-size:12px; color:#999;">{{ i.no }}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="font-size:16px; font-weight:700; line-height:1.4; text-wrap:pretty;">{{ i.title }}</div>
+          <div style="font-size:14px; color:#555; line-height:22px; text-wrap:pretty;">{{ i.evidence }}</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; padding-left:20px; border-left:1px solid #EEEEEE;">
+          <div style="font-size:12px; color:#1677FF; font-weight:700;">제안</div>
+          <div style="font-size:14px; color:#212121; line-height:22px; text-wrap:pretty;">{{ i.action }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="font-size:12px; color:#999; line-height:1.6;">판매개수 = 주문 건수 · 판매금액 = 예산/판매금액 열 · 정산금액 = 매쓰홀릭 배분액(본사계좌·학교장터는 전액) · 테크빌 배분 = 판매금액 − 정산금액 · 글잼 '매홀(계좌)'는 본사계좌로 통합 · 선도/AI중점 명단은 '리스트' 시트 2026년 기준</div>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultMetric&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;amt&quot;,&quot;st&quot;,&quot;tv&quot;,&quot;n&quot;,&quot;p&quot;],&quot;default&quot;:&quot;amt&quot;,&quot;tsType&quot;:&quot;'amt'|'st'|'tv'|'n'|'p'&quot;},&quot;defaultSolution&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;all&quot;,&quot;M&quot;,&quot;G&quot;],&quot;default&quot;:&quot;all&quot;,&quot;tsType&quot;:&quot;'all'|'M'|'G'&quot;}}">
+// 배포한 Apps Script 웹앱 주소. 비밀번호를 맞혀야 집계 숫자를 돌려줍니다.
+const API_URL = '여기에-웹앱-주소-입력';
+const PW_KEY = 'dash-pw';
+const REFRESH_MS = 5 * 60 * 1000;
+const readPw = () => { try { return sessionStorage.getItem(PW_KEY) || ''; } catch (e) { return ''; } };
+const savePw = v => { try { if (v) sessionStorage.setItem(PW_KEY, v); else sessionStorage.removeItem(PW_KEY); } catch (e) {} };
+const ERR = { denied: '비밀번호가 맞지 않습니다.', locked: '시도가 너무 많습니다. 5분 뒤 다시 입력해 주세요.', setup: 'Apps Script에 비밀번호가 아직 설정되지 않았습니다.' };
+
+class Component extends DCLogic {
+  state = { metric: this.props.defaultMetric ?? 'amt', sol: this.props.defaultSolution ?? 'all', data: null, busy: false, error: '', refreshFailed: false };
+  componentDidMount() {
+    const saved = readPw();
+    if (saved) this.load(saved);
+    this.timer = setInterval(() => { if (this.pw) this.load(this.pw); }, REFRESH_MS);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  submit = e => {
+    e.preventDefault();
+    const pw = e.target.elements.pw.value;
+    if (pw) this.load(pw);
+  };
+  load(pw) {
+    const background = !!this.state.data;
+    if (!background) this.setState({ busy: true, error: '' });
+    if (!/^https:/.test(API_URL)) { this.setState({ busy: false, error: '대시보드에 웹앱 주소가 아직 설정되지 않았습니다.' }); return; }
+    return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ password: pw }) })
+      .then(res => res.json())
+      .then(d => {
+        if (d.status === 'ok') {
+          this.pw = pw; savePw(pw);
+          this.setState({ data: d, busy: false, error: '', refreshFailed: false });
+        } else if (d.status === 'denied' || d.status === 'locked') {
+          this.pw = ''; savePw('');
+          this.setState({ data: null, busy: false, error: ERR[d.status] });
+        } else {
+          throw new Error(ERR[d.status] || d.message || '알 수 없는 오류');
+        }
+      })
+      .catch(err => {
+        if (background) this.setState({ refreshFailed: true });
+        else { savePw(''); this.setState({ busy: false, error: '불러오지 못했습니다: ' + err.message }); }
+      });
+  }
+  renderVals() {
+    const { metric: m, sol, data, busy, error, refreshFailed } = this.state;
+    if (!data) return { locked: true, ready: false, submit: this.submit, busy, error, busyLabel: busy ? '불러오는 중…' : '열기' };
+    const AGG = data.agg, LEAD = data.lead, LS = data.leadSummary;
+    const A = AGG[sol];
+    const BLUE = '#1677FF', LB = '#91CAFF', RED = '#FB1A18', GREEN = '#389E0D';
+    const won = v => v >= 1e8 ? (v / 1e8).toFixed(2) + '억' : v >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만' : v > 0 ? Math.round(v).toLocaleString() : '0';
+    const fmt = { amt: won, st: won, tv: won, n: v => v + '건', p: v => v.toLocaleString() + '명' };
+    const labels = { amt: '판매금액', st: '정산금액', tv: '테크빌 배분', n: '판매건수', p: '판매인원' };
+    const idx = { n: 1, p: 2, amt: 3, st: 4, tv: 5 };
+    const solNames = { all: '전체', M: '매쓰홀릭스쿨', G: '글잼스쿨' };
+    const pct = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '-';
+    const T = A.tot;
+    const i = idx[m];
+
+    const mMax = Math.max(1, ...A.months.map(x => x[i]));
+    const peak = [...A.months].sort((a, b) => b[i] - a[i]).slice(0, 2).map(x => x[0]);
+    const months = A.months.map(x => ({ k: x[0] + '월', v: x[i] ? fmt[m](x[i]) : '-', h: (x[i] / mMax * 85) + '%', color: peak.includes(x[0]) ? BLUE : LB }));
+
+    const regAll = A.regions;
+    const rs = [...regAll].sort((a, b) => b[i] - a[i]);
+    const rMax = Math.max(1, rs[0][i]);
+    const weak = [...regAll].sort((a, b) => a[3] - b[3]).slice(0, 5).map(x => x[0]);
+    const regions = rs.map(x => ({ k: x[0], sch: x[6], v: x[i] ? fmt[m](x[i]) : '0', w: (x[i] / rMax * 100) + '%', color: weak.includes(x[0]) ? RED : BLUE }));
+
+    const metrics = Object.keys(labels).map(k => ({ label: labels[k], variant: k === m ? 'primary' : 'sub', pick: () => this.setState({ metric: k }) }));
+    const sols = Object.keys(solNames).map(k => ({ label: solNames[k], variant: k === sol ? 'primary' : 'sub', pick: () => this.setState({ sol: k }) }));
+
+    const kpis = [
+      { label: '판매건수', value: T.n.toLocaleString(), unit: '건', sub: solNames[sol] + ' 기준' },
+      { label: '구매학교', value: T.sch.toLocaleString(), unit: '교', sub: '학교당 평균 ' + (T.n / T.sch).toFixed(1) + '건' },
+      { label: '판매인원', value: T.p.toLocaleString(), unit: '명', sub: '건당 평균 ' + Math.round(T.p / T.n) + '명' },
+      { label: '판매금액', value: (T.amt / 1e8).toFixed(2), unit: '억', sub: '건당 평균 ' + won(T.amt / T.n) + '원' },
+      { label: '정산금액', value: (T.st / 1e8).toFixed(2), unit: '억', sub: '정산율 ' + pct(T.st, T.amt) },
+      { label: '테크빌 배분', value: (T.tv / 1e8).toFixed(2), unit: '억', sub: '판매금액의 ' + pct(T.tv, T.amt) },
+    ];
+
+    const SA = AGG.all.tot;
+    const solutions = [['M', '매쓰홀릭스쿨', BLUE], ['G', '글잼스쿨', GREEN]].map(([k, name, color]) => { const t = AGG[k].tot; return { name, color, n: t.n + '건', amt: won(t.amt), st: won(t.st), tv: won(t.tv), w: (t.amt / SA.amt * 100) + '%' }; });
+
+    const chColor = { '테크빌': BLUE, '학교장터': GREEN, '본사계좌': '#D46B08' };
+    const channels = A.channels.map(([name, n, amt, st, tv]) => ({ name, n: n + '건', amt: won(amt), st: won(st), tv: won(tv), rate: pct(st, amt), color: chColor[name] || '#999', w: (n / T.n * 100) + '%' }));
+
+    const leading = LEAD.map(([k, total, lead, ai, hit, hl, ha]) => { const r = hit / total; return { k, total, lead, ai, hit, hl, ha, gap: total - hit, r, rate: (r * 100).toFixed(1) + '%', w: Math.min(100, r / 0.3 * 100) + '%', color: r < 0.03 ? RED : r < 0.08 ? '#D46B08' : BLUE }; }).sort((a, b) => a.r - b.r);
+    const pctOf = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '-';
+    const leadKpis = [
+      { label: '명단 내 구매학교', value: LS.hitAll.toLocaleString() + ' / ' + LS.total.toLocaleString() + '교', sub: '침투율 ' + pctOf(LS.hitAll, LS.total) },
+      { label: '선도 · AI중점 구매', value: LS.hitLead + ' · ' + LS.hitAi + '교', sub: pctOf(LS.hitLead, LS.cntLead) + ' · ' + pctOf(LS.hitAi, LS.cntAi) },
+      { label: '구매학교 중 비중', value: Math.round(LS.hitAll / AGG.all.tot.sch * 100) + '% · ' + Math.round(LS.hitAmt / AGG.all.tot.amt * 100) + '%', sub: '학교 수 · 판매금액' },
+    ];
+
+    const LC = { '초등': BLUE, '중등': GREEN, '고등': '#D46B08', '기타': '#999' };
+    const levels = A.levels.map(([k, n, amt]) => ({ k, n, v: won(amt), share: pct(amt, T.amt), color: LC[k], w: (amt / T.amt * 100) + '%' }));
+
+    const sMax = Math.max(1, ...A.starts.map(x => x[1]));
+    const starts = A.starts.map(([k, n]) => ({ k, n, h: (n / sMax * 80) + '%', color: ['3월', '4월', '5월'].includes(k) ? BLUE : LB }));
+    const dMax = Math.max(1, ...A.days);
+    const days = A.days.map((n, j) => ({ h: (n / dMax * 100) + '%', color: n === dMax ? BLUE : LB }));
+    const wMax = Math.max(...A.dows);
+    const dows = ['일', '월', '화', '수', '목', '금', '토'].map((k, j) => { const n = A.dows[j]; const top = n >= wMax * 0.9; return { k, n, bg: top ? '#E5F2FD' : '#fff', bd: top ? BLUE : '#EEEEEE', fg: top ? BLUE : '#212121' }; });
+
+    const bar = (rows, keys) => rows.map(([n, a], j) => ({ k: keys[j], sn: pct(n, T.n), sa: pct(a, T.amt), wn: Math.min(100, n / T.n * 160) + '%', wa: Math.min(100, a / T.amt * 160) + '%' }));
+    const periods = bar(A.periods, ['1–3개월', '4–7개월', '8–10개월', '11개월+']);
+    const sizes = bar(A.sizes, ['30명 미만', '30–99명', '100–199명', '200명+']);
+
+    const pr = { P1: { fg: RED, bg: '#FFF1F0', bd: '#FFA39E' }, P2: { fg: '#D46B08', bg: '#FFF7E6', bd: '#FFD591' }, P3: { fg: '#555', bg: '#F7F8F9', bd: '#D9D9D9' } };
+    const insights = data.insights.map(([p, tag, title, evidence, action]) => ({ p, no: tag, title, evidence, action, ...pr[p] }));
+
+    const zeroRegions = AGG.all.regions.filter(x => x[1] === 0).map(x => x[0]);
+    const warnText = data.warningCount ? '시트에서 확인이 필요한 행 ' + data.warningCount + '건은 집계에서 빠졌습니다: ' + data.warnings.map(w => w.tab + ' ' + w.row + '행(' + w.problem + ')').join(', ') + (data.warningCount > data.warnings.length ? ' 외' : '') : '';
+
+    return { locked: false, ready: true, subtitle: '매쓰홀릭스쿨 ' + data.counts.M + '건 + 글잼스쿨 ' + data.counts.G + '건 · 구매완료 · 실제 결제(정산)월 기준', updatedAt: data.updatedAt, refreshNote: refreshFailed ? ' · 최근 새로고침 실패, 이전 숫자 표시 중' : '', warnText, both: data.both, regionNote: '빨간색 = 하위 5개 지역(판매금액 기준)' + (zeroRegions.length ? ' · ' + zeroRegions.join('·') + ' 구매 0건' : ''), leadTotal: LS.total.toLocaleString(), leadBoth: LS.cntBoth, startCols: A.starts.length, metrics, sols, solLabel: solNames[sol], metricLabel: labels[m], metricTotal: fmt[m](T[m]), months, regions, kpis, solutions, channels, leading, leadKpis, levels, starts, days, day1: A.days[0], dows, periods, sizes, nostart: A.nostart, insights };
+  }
+}
+</script>
+</body>
+</html>

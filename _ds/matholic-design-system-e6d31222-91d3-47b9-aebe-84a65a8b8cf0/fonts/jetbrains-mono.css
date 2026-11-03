@@ -1,0 +1,17 @@
+/*
+ * JetBrains Mono — the Matholic monospace face (--mh-font-mono).
+ * Served from the Fontsource CDN (jsDelivr), mirroring how SUIT is loaded.
+ * Original: https://www.jetbrains.com/lega/font (SIL OFL).
+ *
+ * This keeps --mh-font-mono pointing at the real "JetBrains Mono" family.
+ * If/when the user uploads local woff2 files, swap the src urls to ./*.woff2.
+ */
+
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-style: normal; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-700-normal.woff2") format("woff2"); }

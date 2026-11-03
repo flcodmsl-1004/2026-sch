@@ -1,0 +1,172 @@
+/* ───────────────────────────────────────────────────────────────────
+ * Matholic Design Tokens
+ *
+ * Extracted from the Figma source of truth: 기본 컬러 / 타이포 / 간격 / 아이콘 section.
+ * If a value isn't in here, it isn't in the system. Don't invent; ask.
+ * ─────────────────────────────────────────────────────────────────── */
+
+@import url("./fonts/suit.css");
+@import url("./fonts/jetbrains-mono.css");
+
+:root {
+  /* ─── Color ──────────────────────────────────────────────────────── */
+
+  /* Primary — the Matholic blue. Used for actions, links, the active nav
+     item, selected tabs, and anywhere a user's attention needs to go. */
+  --mh-primary:         #1677FF;  /* base — filled buttons, links, focus */
+  --mh-primary-hover:   #1166DE;  /* subtle darken on hover (from SubButton border) */
+  --mh-primary-light:   #1890FF;  /* hover/secondary stroke (ant-inherited) */
+  --mh-primary-50:      #E5F2FD;  /* selected row bg, chip bg, toggle track */
+
+  /* Backgrounds — neutral surfaces. F7F8F9 is the "page" canvas behind
+     content cards; EEEEEE is a disabled/inactive surface. */
+  --mh-bg:              #FFFFFF;  /* card / content surface */
+  --mh-bg-page:         #F7F8F9;  /* page canvas */
+  --mh-bg-muted:        #EEEEEE;  /* disabled fills, hover-row */
+
+  /* Foreground / text hierarchy. Do not use #000. */
+  --mh-fg:              #212121;  /* primary text, icons, headings */
+  --mh-fg-2:            #555555;  /* secondary text */
+  --mh-fg-3:            #777777;  /* tertiary / meta / table sub-label */
+  --mh-fg-4:            #999999;  /* placeholder, disabled label */
+
+  /* Lines & borders */
+  --mh-line:            #D9D9D9;  /* default 1px border */
+  --mh-line-soft:       #EEEEEE;  /* divider between rows */
+  --mh-line-strong:     #BBBBBB;  /* emphasised stroke */
+
+  /* Semantic — red is the only truly-semantic color in the system. Green,
+     orange, teal, lime, etc. are decorative palette colors used for tags
+     and difficulty chips and carry no fixed meaning outside their container. */
+  --mh-danger:          #FB1A18;  /* destructive, error state */
+  --mh-danger-strong:   #CF1322;  /* red text on light bg */
+  --mh-danger-bg:       #FFF1F0;  /* red surface */
+  --mh-danger-border:   #FF7D7C;  /* red border */
+
+  /* Tag / difficulty palette — decorative, not semantic. Tags and score
+     chips pair the base hue with a soft tint bg and a matching border. */
+  --mh-tag-green:        #389E0D;
+  --mh-tag-green-bg:     #F6FFED;
+  --mh-tag-green-border: #B7EB8F;
+  --mh-tag-green-text:   #20AF66;
+
+  --mh-tag-orange:        #D46B08;
+  --mh-tag-orange-bg:     #FFF7E6;
+  --mh-tag-orange-border: #FFB968;
+
+  --mh-tag-teal:          #359795;
+
+  --mh-tag-lime:          #B1E266;  /* inline progress fill */
+
+  /* Chart palette — distinct, colorblind-checked. Use in order.
+     Drawn from the tag palette — no dedicated chart token family. */
+  --mh-chart-1: #1677FF;
+  --mh-chart-2: #389E0D;
+  --mh-chart-3: #D46B08;
+  --mh-chart-4: #FB1A18;
+  --mh-chart-5: #359795;
+  --mh-chart-6: #B1E266;
+
+  /* ─── Elevation ─────────────────────────────────────────────────── */
+
+  /* Elevation is used sparingly. The Figma uses two shadows: a very soft
+     card shadow, and a heavier floating-panel / dropdown shadow. */
+  --mh-shadow-card:      0 2px 8px rgba(0, 0, 0, 0.06);
+  --mh-shadow-popover:   0 6px 16px rgba(0, 35, 11, 0.2), 0 3px 6px rgba(0, 0, 0, 0.15);
+  --mh-shadow-hover:     0 4px 12px rgba(22, 119, 255, 0.18);
+
+  /* ─── Radius ────────────────────────────────────────────────────── */
+
+  --mh-radius-xs:   2px;   /* sections, cells */
+  --mh-radius-sm:   4px;   /* chips, tags */
+  --mh-radius:      6px;   /* default — buttons, fields, selects */
+  --mh-radius-md:   8px;   /* bigger cards */
+  --mh-radius-lg:  10px;   /* panels */
+  --mh-radius-xl:  12px;
+  --mh-radius-pill: 999px;
+
+  /* ─── Spacing — multiples of 4 ──────────────────────────────────── */
+  --mh-space-1:   4px;
+  --mh-space-2:   8px;
+  --mh-space-3:  12px;
+  --mh-space-4:  16px;
+  --mh-space-5:  20px;
+  --mh-space-6:  24px;
+  --mh-space-8:  32px;
+  --mh-space-10: 40px;
+  --mh-space-12: 48px;
+
+  /* ─── Typography ────────────────────────────────────────────────── */
+
+  --mh-font:       "SUIT", "Apple SD Gothic Neo", "Pretendard", system-ui, -apple-system, sans-serif;
+  --mh-font-mono:  "SF Mono", "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  /* Weights — Matholic uses 4: 400 / 500 / 600 / 700.
+     Rule of thumb (from the system doc): button labels = 500,
+     OFF-state = 400, ON-state = 600. */
+  --mh-w-regular:  400;  /* @kind font */
+  --mh-w-medium:   500;  /* @kind font */
+  --mh-w-semibold: 600;  /* @kind font */
+  --mh-w-bold:     700;  /* @kind font */
+
+  /* Sizes — derived from the Figma usage matrix. 14px is the workhorse. */
+  --mh-text-xs:   11px;
+  --mh-text-sm:   12px;
+  --mh-text-md:   13px;
+  --mh-text-base: 14px;   /* body default — 862 uses in Figma */
+  --mh-text-lg:   15px;
+  --mh-text-xl:   16px;
+  --mh-text-2xl:  18px;
+  --mh-text-3xl:  22px;
+  --mh-text-4xl:  24px;
+
+  /* Semantic type roles */
+  --mh-h1: 700 24px/100% var(--mh-font);   /* section headings */
+  --mh-h2: 700 18px/100% var(--mh-font);   /* sub-section headings */
+  --mh-h3: 700 16px/120% var(--mh-font);   /* card titles */
+  --mh-h4: 600 14px/120% var(--mh-font);   /* label / emphasised */
+
+  --mh-body:      400 14px/22px var(--mh-font);
+  --mh-body-sm:   400 12px/18px var(--mh-font);
+  --mh-button:    500 14px/100% var(--mh-font);
+  --mh-button-on: 600 14px/100% var(--mh-font);  /* active/selected button label */
+  --mh-caption:   400 12px/14px var(--mh-font);
+  --mh-meta:      400 13px/16px var(--mh-font);
+  --mh-code:      400 13px/20px var(--mh-font-mono);
+}
+
+/* ─── Base resets matching Matholic defaults ──────────────────────── */
+
+html, body {
+  font: var(--mh-body);
+  color: var(--mh-fg);
+  background: var(--mh-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+}
+
+h1 { font: var(--mh-h1); color: var(--mh-fg); margin: 0; }
+h2 { font: var(--mh-h2); color: var(--mh-fg); margin: 0; }
+h3 { font: var(--mh-h3); color: var(--mh-fg); margin: 0; }
+h4 { font: var(--mh-h4); color: var(--mh-fg); margin: 0; }
+
+p, li { font: var(--mh-body); color: var(--mh-fg-2); margin: 0; }
+
+small, .mh-caption { font: var(--mh-caption); color: var(--mh-fg-4); }
+
+code, kbd, samp, pre { font: var(--mh-code); }
+
+/* Utility classes — handy for cards / kits */
+.mh-fg   { color: var(--mh-fg); }
+.mh-fg-2 { color: var(--mh-fg-2); }
+.mh-fg-3 { color: var(--mh-fg-3); }
+.mh-fg-4 { color: var(--mh-fg-4); }
+.mh-primary { color: var(--mh-primary); }
+.mh-danger  { color: var(--mh-danger); }
+
+.mh-card {
+  background: var(--mh-bg);
+  border: 1px solid var(--mh-line);
+  border-radius: var(--mh-radius-lg);
+}

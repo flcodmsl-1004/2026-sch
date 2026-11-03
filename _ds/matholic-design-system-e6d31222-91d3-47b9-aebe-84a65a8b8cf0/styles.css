@@ -1,0 +1,13 @@
+/* ───────────────────────────────────────────────────────────────────
+ * Matholic Design System — entry stylesheet
+ *
+ * Link this ONE file from a consuming project; it pulls in the rest:
+ *   colors_and_type.css → design tokens (custom properties)
+ *                       → fonts/suit.css (SUIT @font-face) via its own @import
+ *
+ * preview/preview.css is intentionally NOT imported here — it is internal
+ * styling for the Design System tab's preview cards (global resets, card
+ * layout) and is not meant for production consumers.
+ * ─────────────────────────────────────────────────────────────────── */
+
+@import url("./colors_and_type.css");
