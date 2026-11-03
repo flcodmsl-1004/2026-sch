@@ -31,7 +31,13 @@
 </div>
 </sc-if>
 <sc-if value="{{ ready }}">
-<div style="min-height:100vh; background:#F7F8F9; padding:32px 32px 64px; box-sizing:border-box; display:flex; flex-direction:column; gap:20px;">
+<div style="min-height:100vh; background:#F7F8F9; padding:16px 32px 64px; box-sizing:border-box; display:flex; flex-direction:column; gap:20px;">
+  <nav aria-label="대시보드 메뉴" style="display:flex; gap:24px; border-bottom:1px solid #D9D9D9;">
+    <sc-for list="{{ navs }}" as="n" hint-placeholder-count="2">
+      <a href="{{ n.href }}" aria-current="{{ n.current }}" style="padding:10px 2px; margin-bottom:-1px; font-size:15px; font-weight:{{ n.fw }}; color:{{ n.fg }}; border-bottom:2px solid {{ n.line }}; text-decoration:none;">{{ n.label }}</a>
+    </sc-for>
+  </nav>
+<sc-if value="{{ pageSales }}">
 
   <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; padding-bottom:16px; border-bottom:1px solid rgba(33,33,33,0.2);">
     <div style="display:flex; flex-direction:column; gap:6px;">
@@ -311,6 +317,73 @@
   </div>
 
   <div style="font-size:12px; color:#999; line-height:1.6;">판매개수 = 주문 건수 · 판매금액 = 예산/판매금액 열 · 정산금액 = 매쓰홀릭 배분액(본사계좌·학교장터는 전액) · 테크빌 배분 = 판매금액 − 정산금액 · 글잼 '매홀(계좌)'는 본사계좌로 통합 · 선도/AI중점 명단은 '리스트' 시트 2026년 기준</div>
+</sc-if>
+<sc-if value="{{ pageExpiry }}">
+  <div style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <h1 style="margin:0; font-size:24px; font-weight:700; line-height:1.3;">만료 관리</h1>
+      <div style="font-size:12px; color:#999;">마지막 갱신 {{ updatedAt }} · 학교·솔루션별 가장 늦은 만료일 기준{{ refreshNote }}</div>
+    </div>
+    <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="sub" size="sm" onClick="{{ downloadCsv }}" hint-size="auto,28px">목록 CSV 내려받기</x-import>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap:12px;">
+    <sc-for list="{{ eKpis }}" as="k" hint-placeholder-count="5">
+      <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:13px; color:#777; font-weight:500;">{{ k.label }}</div>
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <span style="font-size:28px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; color:{{ k.fg }};">{{ k.value }}</span>
+          <span style="font-size:14px; color:#555; font-weight:600;">곳</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+    <sc-for list="{{ eFilters }}" as="f" hint-placeholder-count="4">
+      <div style="display:grid; grid-template-columns:72px minmax(0,1fr); gap:12px; align-items:start;">
+        <span style="font-size:13px; color:#777; line-height:28px;">{{ f.label }}</span>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="4">
+            <x-import component-from-global-scope="MatholicDesignSystem_e6d312.Button" variant="{{ o.variant }}" size="sm" onClick="{{ o.pick }}" hint-size="auto,28px">{{ o.label }}</x-import>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <div style="display:grid; grid-template-columns:72px minmax(0,1fr); gap:12px; align-items:center;">
+      <label for="expiry-search" style="font-size:13px; color:#777;">학교 검색</label>
+      <input id="expiry-search" type="search" value="{{ eq }}" onChange="{{ onSearch }}" placeholder="학교명 입력" style="height:36px; width:100%; max-width:320px; border:1px solid #D9D9D9; border-radius:6px; padding:0 12px; font-size:14px; font-family:inherit; box-sizing:border-box;">
+    </div>
+  </div>
+
+  <div style="background:#fff; border:1px solid #D9D9D9; border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+    <div style="font-size:16px; font-weight:700;">{{ ePeriodLabel }} <span style="font-size:13px; color:#777; font-weight:500;">{{ eCount }}곳</span></div>
+    <div style="overflow-x:auto;">
+      <div style="min-width:1080px;">
+        <div style="display:grid; grid-template-columns:minmax(150px,1.5fr) 44px 96px 136px 76px 56px 96px 72px 84px minmax(120px,1.4fr); gap:12px; font-size:12px; color:#999; padding-bottom:8px;">
+          <span>학교</span><span>지역</span><span>솔루션</span><span>만료일</span><span>남은 기간</span><span style="text-align:right;">인원</span><span style="text-align:right;">판매금액</span><span>구매처</span><span>후속 상태</span><span>메모</span>
+        </div>
+        <sc-for list="{{ eRows }}" as="r" hint-placeholder-count="8">
+          <div style="display:grid; grid-template-columns:minmax(150px,1.5fr) 44px 96px 136px 76px 56px 96px 72px 84px minmax(120px,1.4fr); gap:12px; align-items:center; font-size:13px; padding:10px 0; border-top:1px solid #EEEEEE; font-variant-numeric:tabular-nums;">
+            <span style="font-weight:600;">{{ r.school }}<span style="font-weight:400; color:#999;">{{ r.times }}</span></span>
+            <span>{{ r.region }}</span>
+            <span>{{ r.sol }}</span>
+            <span>{{ r.end }}</span>
+            <span style="font-weight:600; color:{{ r.color }};">{{ r.dday }}</span>
+            <span style="text-align:right;">{{ r.people }}</span>
+            <span style="text-align:right;">{{ r.amt }}</span>
+            <span style="color:#555;">{{ r.channel }}</span>
+            <span>{{ r.status }}</span>
+            <span style="color:#555; overflow-wrap:anywhere;">{{ r.memo }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{ eEmpty }}"><div style="font-size:14px; color:#777; padding:24px 0; text-align:center;">조건에 맞는 학교가 없습니다.</div></sc-if>
+  </div>
+
+  <div style="font-size:12px; color:#999; line-height:1.6;">(추정) = 만료일이 없어 시작일 + 기간으로 계산한 값 · 확인 필요 = 일자가 불완전하거나 계산할 수 없는 건 · 후속 상태와 메모는 시트의 만료관리 탭에서 입력 · 담당자·연락처·메일은 시트에서만 관리</div>
+</sc-if>
 </div>
 </sc-if>
 </x-dc>
@@ -319,18 +392,74 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycby0JVory4qMaKZ9I31ePOEkOZzhHYRkGKBDfY6t0s4DlyvkQD0bLgeZ7-iVOprKYlla/exec';
 const PW_KEY = 'dash-pw';
 const REFRESH_MS = 5 * 60 * 1000;
+const pageFromHash = () => location.hash === '#expiry' ? 'expiry' : 'sales';
 const readPw = () => { try { return sessionStorage.getItem(PW_KEY) || ''; } catch (e) { return ''; } };
 const savePw = v => { try { if (v) sessionStorage.setItem(PW_KEY, v); else sessionStorage.removeItem(PW_KEY); } catch (e) {} };
 const ERR = { denied: '비밀번호가 맞지 않습니다.', locked: '시도가 너무 많습니다. 5분 뒤 다시 입력해 주세요.', setup: 'Apps Script에 비밀번호가 아직 설정되지 않았습니다.' };
 
 class Component extends DCLogic {
-  state = { metric: this.props.defaultMetric ?? 'amt', sol: this.props.defaultSolution ?? 'all', data: null, busy: false, error: '', refreshFailed: false };
+  state = { metric: this.props.defaultMetric ?? 'amt', sol: this.props.defaultSolution ?? 'all', data: null, busy: false, error: '', refreshFailed: false, page: pageFromHash(), ePeriod: '90', eSol: 'all', eRegion: 'all', eStatus: 'all', eq: '' };
+  onHash = () => this.setState({ page: pageFromHash() });
+  onSearch = e => this.setState({ eq: e.target.value });
+  downloadCsv = () => {
+    const cell = v => { const s = String(v ?? ''); return '"' + (/^[=+\-@]/.test(s) ? "'" + s : s).replace(/"/g, '""') + '"'; };
+    const head = ['학교', '지역', '솔루션', '만료일', '남은 기간', '인원', '판매금액', '구매처', '후속 상태', '메모'];
+    const lines = (this.eFiltered || []).map(r => [r.school, r.region, r.sol, r.end, r.dday, r.peopleNum, r.amtNum, r.channel, r.status, r.memo].map(cell).join(','));
+    const url = URL.createObjectURL(new Blob(['﻿' + [head.map(cell).join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = '만료관리.csv'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  expiryVals(data) {
+    const { ePeriod, eSol, eRegion, eStatus, eq } = this.state;
+    const RED = '#FB1A18', ORANGE = '#D46B08', SOLS = { M: '매쓰홀릭스쿨', G: '글잼스쿨' };
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const all = (data.expiry || []).map(([school, region, sol, end, flag, people, amt, channel, status, memo, count]) => {
+      const p = flag === 'check' ? null : end.split('-').map(Number);
+      const d = p ? Math.round((Date.UTC(p[0], p[1] - 1, p[2]) - today) / 864e5) : null;
+      return {
+        school, region, solKey: sol, sol: SOLS[sol], end: flag === 'est' ? end + ' (추정)' : (end || '-'), d, channel, memo, status: status || '미연락',
+        times: count > 1 ? ' · 구매 ' + count + '건' : '', peopleNum: people, amtNum: amt, people: people.toLocaleString() + '명', amt: amt.toLocaleString() + '원',
+        dday: d === null ? '확인 필요' : d < 0 ? -d + '일 지남' : d === 0 ? '오늘' : 'D-' + d,
+        color: d === null ? '#999' : d < 0 ? '#777' : d <= 30 ? RED : d <= 60 ? ORANGE : '#212121',
+      };
+    });
+    const q = eq.replace(/\s+/g, '');
+    const base = all.filter(r => (eSol === 'all' || r.solKey === eSol) && (eRegion === 'all' || r.region === eRegion) && (eStatus === 'all' || r.status === eStatus) && (!q || r.school.includes(q)));
+    const within = n => r => r.d !== null && r.d >= 0 && r.d <= n;
+    const PERIODS = { 30: ['30일 이내', within(30)], 60: ['60일 이내', within(60)], 90: ['90일 이내', within(90)], 180: ['180일 이내', within(180)], expired: ['이미 만료', r => r.d !== null && r.d < 0], check: ['확인 필요', r => r.d === null], all: ['전체', () => true] };
+    const rank = r => r.d === null ? 2 : r.d < 0 ? 1 : 0;
+    const rows = base.filter(PERIODS[ePeriod][1]).sort((a, b) => rank(a) - rank(b) || (rank(a) === 1 ? b.d - a.d : (a.d ?? 0) - (b.d ?? 0)) || a.school.localeCompare(b.school, 'ko'));
+    this.eFiltered = rows;
+    const opts = (cur, key, list) => list.map(([v, label]) => ({ label, variant: String(v) === String(cur) ? 'primary' : 'sub', pick: () => this.setState({ [key]: v }) }));
+    const regions = [...new Set(all.map(r => r.region))].sort((a, b) => a.localeCompare(b, 'ko'));
+    const statuses = [...new Set(['미연락', ...all.map(r => r.status)])];
+    const count = fn => base.filter(fn).length.toLocaleString();
+    return {
+      eKpis: [
+        { label: '30일 이내', value: count(within(30)), fg: RED },
+        { label: '60일 이내', value: count(within(60)), fg: ORANGE },
+        { label: '90일 이내', value: count(within(90)), fg: '#212121' },
+        { label: '이미 만료', value: count(PERIODS.expired[1]), fg: '#777' },
+        { label: '확인 필요', value: count(PERIODS.check[1]), fg: '#999' },
+      ],
+      eFilters: [
+        { label: '만료 시점', options: opts(ePeriod, 'ePeriod', ['30', '60', '90', '180', 'expired', 'check', 'all'].map(k => [k, PERIODS[k][0]])) },
+        { label: '솔루션', options: opts(eSol, 'eSol', [['all', '전체'], ['M', SOLS.M], ['G', SOLS.G]]) },
+        { label: '후속 상태', options: opts(eStatus, 'eStatus', [['all', '전체'], ...statuses.map(s => [s, s])]) },
+        { label: '지역', options: opts(eRegion, 'eRegion', [['all', '전체'], ...regions.map(r => [r, r])]) },
+      ],
+      eq, onSearch: this.onSearch, downloadCsv: this.downloadCsv, eRows: rows, eEmpty: rows.length === 0, eCount: rows.length.toLocaleString(), ePeriodLabel: PERIODS[ePeriod][0],
+    };
+  }
   componentDidMount() {
+    window.addEventListener('hashchange', this.onHash);
     const saved = readPw();
     if (saved) this.load(saved);
     this.timer = setInterval(() => { if (this.pw) this.load(this.pw); }, REFRESH_MS);
   }
-  componentWillUnmount() { clearInterval(this.timer); }
+  componentWillUnmount() { clearInterval(this.timer); window.removeEventListener('hashchange', this.onHash); }
   submit = e => {
     e.preventDefault();
     const pw = e.target.elements.pw.value;
@@ -429,7 +558,10 @@ class Component extends DCLogic {
     const zeroRegions = AGG.all.regions.filter(x => x[1] === 0).map(x => x[0]);
     const warnText = data.warningCount ? '시트에서 확인이 필요한 행 ' + data.warningCount + '건은 집계에서 빠졌습니다: ' + data.warnings.map(w => w.tab + ' ' + w.row + '행(' + w.problem + ')').join(', ') + (data.warningCount > data.warnings.length ? ' 외' : '') : '';
 
-    return { locked: false, ready: true, subtitle: '매쓰홀릭스쿨 ' + data.counts.M + '건 + 글잼스쿨 ' + data.counts.G + '건 · 구매완료 · 실제 결제(정산)월 기준', updatedAt: data.updatedAt, refreshNote: refreshFailed ? ' · 최근 새로고침 실패, 이전 숫자 표시 중' : '', warnText, both: data.both, regionNote: '빨간색 = 하위 5개 지역(판매금액 기준)' + (zeroRegions.length ? ' · ' + zeroRegions.join('·') + ' 구매 0건' : ''), leadTotal: LS.total.toLocaleString(), leadBoth: LS.cntBoth, startCols: A.starts.length, metrics, sols, solLabel: solNames[sol], metricLabel: labels[m], metricTotal: fmt[m](T[m]), months, regions, kpis, solutions, channels, leading, leadKpis, levels, starts, days, day1: A.days[0], dows, periods, sizes, nostart: A.nostart, insights };
+    const page = this.state.page;
+    const navs = [['#sales', 'sales', '판매 현황'], ['#expiry', 'expiry', '만료 관리']].map(([href, key, label]) => ({ href, label, current: key === page ? 'page' : 'false', fw: key === page ? 700 : 500, fg: key === page ? BLUE : '#777', line: key === page ? BLUE : 'transparent' }));
+
+    return { ...this.expiryVals(data), navs, pageSales: page === 'sales', pageExpiry: page === 'expiry', locked: false, ready: true, subtitle: '매쓰홀릭스쿨 ' + data.counts.M + '건 + 글잼스쿨 ' + data.counts.G + '건 · 구매완료 · 실제 결제(정산)월 기준', updatedAt: data.updatedAt, refreshNote: refreshFailed ? ' · 최근 새로고침 실패, 이전 숫자 표시 중' : '', warnText, both: data.both, regionNote: '빨간색 = 하위 5개 지역(판매금액 기준)' + (zeroRegions.length ? ' · ' + zeroRegions.join('·') + ' 구매 0건' : ''), leadTotal: LS.total.toLocaleString(), leadBoth: LS.cntBoth, startCols: A.starts.length, metrics, sols, solLabel: solNames[sol], metricLabel: labels[m], metricTotal: fmt[m](T[m]), months, regions, kpis, solutions, channels, leading, leadKpis, levels, starts, days, day1: A.days[0], dows, periods, sizes, nostart: A.nostart, insights };
   }
 }
 </script>

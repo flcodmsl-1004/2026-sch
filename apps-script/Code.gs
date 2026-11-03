@@ -9,6 +9,7 @@ const NEW_TAB = '시트1';        // 앞으로 구매 건을 입력하는 탭
 const BASE_TAB = '기존데이터';   // 11/2까지의 구매 건
 const LEAD_TAB = '선도학교';     // 2026 선도·AI중점 명단
 const INSIGHT_TAB = '인사이트';  // 대시보드 하단 인사이트 문구
+const NOTE_TAB = '만료관리';     // 후속 상태·메모 (연락처 칸은 대시보드로 보내지 않습니다)
 const CACHE_SECONDS = 60;
 const MAX_FAILS = 10;          // 비밀번호를 5분 안에 이만큼 틀리면 5분간 차단
 
@@ -36,7 +37,7 @@ function doPost(e) {
     const cached = cache.get('result');
     if (cached) return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
     const text = JSON.stringify(Object.assign({ status: 'ok' }, buildResult_()));
-    if (text.length < 95000) cache.put('result', text, CACHE_SECONDS);
+    try { cache.put('result', text, CACHE_SECONDS); } catch (tooLarge) {} // 100KB를 넘으면 캐시 없이 응답
     return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return json_({ status: 'error', message: String(err.message || err) });
@@ -69,7 +70,7 @@ function buildResult_() {
     });
   };
   const rows = read(BASE_TAB, true).concat(read(NEW_TAB, true));
-  const result = aggregate(rows, read(LEAD_TAB, true));
+  const result = aggregate(rows, read(LEAD_TAB, true), read(NOTE_TAB, false));
   result.insights = read(INSIGHT_TAB, false).filter(r => r['제목']).map(r => [r['우선순위'], r['구분'], r['제목'], r['근거'], r['제안']]);
   result.updatedAt = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
   return result;
@@ -197,8 +198,53 @@ function normalizeRow_(raw) {
       period: parseNum_(raw['기간']) || 0,
       start: parseDate_(raw['시작일']),
       level: str_(raw['학교급']),
+      end: parseDate_(raw['만료일']),
+      endRaw: str_(raw['만료일']),
     },
   };
+}
+
+function ymd_(y, m, d) {
+  return y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+}
+
+// 시작일 + 기간(개월) - 1일로 만료일을 추정합니다
+function estimateEnd_(r) {
+  if (!r.start || !(r.period > 0)) return '';
+  const d = new Date(Date.UTC(r.start.y, r.start.m - 1 + Math.round(r.period), r.start.d - 1));
+  return ymd_(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
+// 학교·솔루션별 1줄: [학교, 지역, 솔루션, 만료일, 구분('', 'est', 'check'), 인원, 판매금액, 구매처, 후속 상태, 메모, 구매 건수]
+function expiryList_(rows, noteRows) {
+  const notes = {};
+  (noteRows || []).forEach(n => {
+    const key = schoolName_(n['학교명']) + '|' + str_(n['지역']) + '|' + (SOL_KEYS[str_(n['솔루션'])] || '');
+    notes[key] = { status: str_(n['후속상태']), memo: str_(n['메모']) };
+  });
+  const groups = {};
+  rows.forEach(r => {
+    const key = r.school + '|' + r.region + '|' + r.sol;
+    if (!groups[key]) groups[key] = [];
+    let date = '', flag = 'check';
+    if (r.end) { date = ymd_(r.end.y, r.end.m, r.end.d); flag = ''; }
+    else if (!r.endRaw && estimateEnd_(r)) { date = estimateEnd_(r); flag = 'est'; }
+    groups[key].push({ r, date, flag });
+  });
+  return Object.keys(groups).map(key => {
+    const list = groups[key];
+    const dated = list.filter(x => x.date);
+    const latest = dated.length ? dated.map(x => x.date).sort().pop() : '';
+    const picked = latest ? dated.filter(x => x.date === latest) : list;
+    const first = picked[0];
+    const shown = latest || first.r.endRaw.replace('확인필요', '').trim();
+    const note = notes[key] || notes[first.r.school + '|' + first.r.region + '|'] || { status: '', memo: '' };
+    return [
+      first.r.school, first.r.region, first.r.sol, shown, latest ? first.flag : 'check',
+      picked.reduce((s, x) => s + x.r.people, 0), Math.round(picked.reduce((s, x) => s + x.r.amt, 0)),
+      first.r.channel, note.status, note.memo, list.length,
+    ];
+  });
 }
 
 function finishAgg_(A, startKeys) {
@@ -226,7 +272,7 @@ function finishAgg_(A, startKeys) {
   };
 }
 
-function aggregate(rawRows, leadRows) {
+function aggregate(rawRows, leadRows, noteRows) {
   const groups = { all: emptyAgg_(), M: emptyAgg_(), G: emptyAgg_() };
   const warnings = [];
   const accepted = [];
@@ -294,6 +340,7 @@ function aggregate(rawRows, leadRows) {
       hitAll, hitLead, hitAi, hitAmt: Math.round(hitAmt),
     },
     both,
+    expiry: expiryList_(accepted, noteRows),
     counts: { M: groups.M.tot.n, G: groups.G.tot.n },
     warnings: warnings.slice(0, 20),
     warningCount: warnings.length,
