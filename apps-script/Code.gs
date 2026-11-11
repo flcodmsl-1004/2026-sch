@@ -27,8 +27,9 @@ const TEACHERMALL_VENDOR = '테크빌';
 // 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
 const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액',
   '시작일', '만료일', '소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
-  '학교급', '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
-const ORDER_AUTO = ['주문월', '주문주차']; // 주문일에서 자동 (주문일이 없는 예전 건은 값을 그대로 둠)
+  '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
+// 학교급은 학교명에서, 주문월·주문주차는 주문일에서 자동 (주문일이 없는 예전 건은 주문월·주차 값을 그대로 둠)
+const ORDER_AUTO = ['학교급', '주문월', '주문주차'];
 const AUTO_HEAD = ['정산지연', '적용 리셀비율', '리셀배분액', '정산금액', '선도구분', '신규/재구매', '진행률'];
 const RAW_LAYOUT = INPUT_HEAD.concat(ORDER_AUTO, AUTO_HEAD);
 const DROPPED_HEAD = ['시트기재일']; // 열 정리 때 지우는 칸
@@ -128,6 +129,7 @@ function writeAuto_(sheet, raw, derived) {
     if (c >= 0) sheet.getRange(2, c + 1, values.length, 1).setValues(values.map(v => [v]));
   };
   // 주문일이 있는 행만 주문월·주차를 다시 계산하고, 나머지는 원래 값을 그대로 둡니다
+  put('학교급', derived.map(d => d.level));
   put('주문월', derived.map((d, i) => d.fromDate ? d.orderYm : raw[i]['주문월']));
   put('주문주차', derived.map((d, i) => d.fromDate ? d.orderWeek : raw[i]['주문주차']));
   AUTO_HEAD.forEach((name, k) => put(name, derived.map(d => d.auto[k])));
@@ -277,7 +279,6 @@ function setupRaw() {
   body('상태').setDataValidation(list(STATUSES));
   body('솔루션').setDataValidation(list(Object.keys(SOL_KEYS)));
   body('지역').setDataValidation(list(LEAD_REGIONS));
-  body('학교급').setDataValidation(list(LEVELS));
   body('구매처1').setDataValidation(list(CHANNEL1));
   body('구매처2').setDataValidation(rule().requireValueInRange(rates.getRange('A2:A'), true).setAllowInvalid(false).build());
   body('가격구분').setDataValidation(list(['정상가', '협의가', '확인필요']));
@@ -296,6 +297,7 @@ function setupRaw() {
     body(h).setBackground('#FAFAFA').setFontColor('#595959');
   });
   sheet.getRange(1, col('주문월')).setNote('주문일을 넣으면 자동으로 채워집니다. 주문일이 없는 예전 건만 이 칸의 값을 그대로 씁니다.');
+  sheet.getRange(1, col('학교급')).setNote('학교명에서 자동: …초등학교 → 초등, …중학교 → 중등, …고등학교 → 고등, 그 밖(…학교, 기관명) → 기타. 괄호 안 글자는 무시합니다.');
   sheet.getRange(1, col('주문주차')).setNote('주문일을 넣으면 자동으로 채워집니다 (월요일 시작, 1일이 속한 주 = 1주차).');
   sheet.getRange(1, col('정산월')).setNote('정산된 달 (예: 2026-11). 비워두면 주문월 기준으로 집계합니다. 정산지연 = 정산월 − 주문월.');
   sheet.getRange(1, col('정산주차')).setNote('비워두면 실제정산일이 정산월 안에 있을 때 그 날짜의 주차로 계산합니다.');
@@ -412,6 +414,16 @@ function schoolName_(v) {
   return str_(v).replace(/\s+/g, '');
 }
 
+// 학교명 → 학교급. 괄호 안 글자(예: 백학초등학교(연천))는 무시합니다
+function levelOf_(name) {
+  const n = schoolName_(name).replace(/\([^)]*\)/g, '');
+  if (!n) return '';
+  if (/초등학교$/.test(n)) return '초등';
+  if (/중학교$/.test(n)) return '중등';
+  if (/고등학교$/.test(n)) return '고등';
+  return '기타';
+}
+
 // 명단 대조용 키: 학교명 앞의 지역명이 있어도 없어도 같은 학교로 봅니다
 function leadKey_(school, region) {
   const name = schoolName_(school);
@@ -477,7 +489,7 @@ function progress_(raw, ch2, hasOrderDate) {
 
 // 한 행에서 자동 칸 값과 집계용 값을 만듭니다
 function deriveRow_(raw, rates, lead) {
-  const d = { tab: raw.__tab, row: raw.__row, status: str_(raw['상태']), auto: AUTO_HEAD.map(() => ''), orderYm: '', orderWeek: '', fromDate: false };
+  const d = { tab: raw.__tab, row: raw.__row, status: str_(raw['상태']), auto: AUTO_HEAD.map(() => ''), orderYm: '', orderWeek: '', fromDate: false, level: levelOf_(raw['학교명']) };
   const school = schoolName_(raw['학교명']);
   const amt = parseNum_(raw['판매금액']);
   if (!school && !d.status && amt === null) { d.skip = true; return d; }
@@ -540,7 +552,7 @@ function deriveRow_(raw, rates, lead) {
     people: parseNum_(raw['인원']) || 0,
     period: parseNum_(raw['기간']) || 0,
     start,
-    level: str_(raw['학교급']),
+    level: d.level,
     end: parseDate_(raw['만료일']),
     endRaw: str_(raw['만료일']),
   };
