@@ -25,7 +25,7 @@ const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
 const TEACHERMALL_VENDOR = '테크빌';
 
 // 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
-const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액',
+const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액', '입금확인',
   '시작일', '만료일', '소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
   '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
 // 학교급은 학교명에서, 주문월·주문주차는 주문일에서 자동 (주문일이 없는 예전 건은 주문월·주차 값을 그대로 둠)
@@ -192,7 +192,7 @@ function arrangeRaw_(ss, sheet) {
   sheet.clear();
   const width = next[0].length;
   if (sheet.getMaxColumns() < width) sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
-  const textCols = ['주문월', '정산월', '정산지연', '선도구분', '신규/재구매', '진행률'];
+  const textCols = ['주문월', '정산월', '입금확인','정산지연', '선도구분', '신규/재구매', '진행률'];
   next[0].forEach((h, j) => { if (textCols.indexOf(h) >= 0) sheet.getRange(1, j + 1, sheet.getMaxRows(), 1).setNumberFormat('@'); });
   sheet.getRange(1, 1, next.length, width).setValues(next);
   sheet.setColumnWidths(1, sheet.getMaxColumns(), 100);
@@ -274,7 +274,7 @@ function setupRaw() {
   const list = (values, allowInvalid) => rule().requireValueInList(values, true).setAllowInvalid(!!allowInvalid).build();
 
   // 표시 형식 (텍스트 칸이 날짜로 바뀌지 않도록 먼저 지정)
-  ['주문월', '정산월', '정산지연', '선도구분', '신규/재구매', '진행률'].forEach(h => body(h).setNumberFormat('@'));
+  ['주문월', '정산월', '입금확인', '정산지연', '선도구분', '신규/재구매', '진행률'].forEach(h => body(h).setNumberFormat('@'));
   ['주문일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setNumberFormat('yyyy-mm-dd'));
   ['단가', '판매금액', '리셀배분액', '정산금액'].forEach(h => body(h).setNumberFormat('#,##0'));
   ['예외 리셀비율', '적용 리셀비율'].forEach(h => body(h).setNumberFormat('0.0%'));
@@ -303,6 +303,8 @@ function setupRaw() {
     body(h).setBackground('#FAFAFA').setFontColor('#595959');
   });
   sheet.getRange(1, col('주문월')).setNote('주문일을 넣으면 자동으로 채워집니다. 주문일이 없는 예전 건만 이 칸의 값을 그대로 씁니다.');
+  sheet.getRange(1, col('입금확인')).setNote('본사계좌·학교장터 입금 확인 메모 (예: 11/12 입금 확인). 자유롭게 글로 적습니다. 계산·대시보드에는 쓰지 않습니다.');
+  sheet.setColumnWidth(col('입금확인'), 150);
   sheet.getRange(1, col('학교급')).setNote('학교명에서 자동: …초등학교 → 초등, …중학교 → 중등, …고등학교 → 고등, 그 밖(…학교, 기관명) → 기타. 괄호 안 글자는 무시합니다.');
   sheet.getRange(1, col('주문주차')).setNote('주문일을 넣으면 자동으로 채워집니다 (월요일 시작, 1일이 속한 주 = 1주차).');
   sheet.getRange(1, col('정산월')).setNote('정산된 달 (예: 2026-11). 비워두면 주문월 기준으로 집계합니다. 정산지연 = 정산월 − 주문월.');
