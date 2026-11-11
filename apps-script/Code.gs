@@ -345,6 +345,9 @@ function setupRaw() {
     // 리셀업체 건은 입금확인이 필요 없음
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$' + r('구매처1') + '="리셀업체"')
       .setBackground('#F0F0F0').setFontColor('#BFBFBF').setRanges([body('입금확인')]).build(),
+    // 만료일에 '확인필요' 글자가 있음 (사이트개설 경고와 같은 색)
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('확인필요')
+      .setBackground('#FFF1F0').setRanges([body('만료일')]).build(),
     // 만료일이 오늘부터 30일 안 (재구매 연락 시점)
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(ISNUMBER($' + r('만료일') + '),$' + r('만료일') + '>=TODAY(),$' + r('만료일') + '-TODAY()<=30)')
       .setBackground('#FFE2C2').setRanges([body('만료일')]).build(),
