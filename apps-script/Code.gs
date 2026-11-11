@@ -25,9 +25,9 @@ const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
 const TEACHERMALL_VENDOR = '테크빌';
 
 // 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
-const INPUT_HEAD = ['주문일', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액',
+const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액',
   '시작일', '만료일', '소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
-  '정산월', '학교급', '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
+  '학교급', '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
 const ORDER_AUTO = ['주문월', '주문주차']; // 주문일에서 자동 (주문일이 없는 예전 건은 값을 그대로 둠)
 const AUTO_HEAD = ['정산지연', '적용 리셀비율', '리셀배분액', '정산금액', '선도구분', '신규/재구매', '진행률'];
 const RAW_LAYOUT = INPUT_HEAD.concat(ORDER_AUTO, AUTO_HEAD);
@@ -99,6 +99,7 @@ function onOpen() {
     .addItem('자동 칸·주차보고 새로고침', 'refreshAll')
     .addSeparator()
     .addItem('구매현황RAW 열 정리·서식 설치', 'setupRaw')
+    .addItem('백업의 시트기재일을 주문일로 옮기기 (한 번)', 'fillOrderDateFromBackup')
     .addToUi();
 }
 
@@ -188,6 +189,48 @@ function arrangeRaw_(ss, sheet) {
   sheet.getRange(1, 1, next.length, width).setValues(next);
   sheet.setColumnWidths(1, sheet.getMaxColumns(), 100);
   return backup.getUrl();
+}
+
+// 한 번만: 열 정리 전 백업 파일의 시트기재일을 주문일이 빈 행에 옮기고, 열 정리를 다시 실행합니다
+function fillOrderDateFromBackup() {
+  const ui = SpreadsheetApp.getUi();
+  const ans = ui.prompt('시트기재일 → 주문일', '"구매현황RAW 백업 (열 정리 전)" 파일의 주소를 붙여넣어 주세요.', ui.ButtonSet.OK_CANCEL);
+  if (ans.getSelectedButton() !== ui.Button.OK) return;
+  const backup = SpreadsheetApp.openByUrl(ans.getResponseText().trim()).getSheetByName(RAW_TAB);
+  if (!backup) throw new Error('백업 파일에 "' + RAW_TAB + '" 탭이 없습니다.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(RAW_TAB);
+  const res = orderDatesFromBackup_(backup.getDataRange().getValues(), sheet.getDataRange().getValues());
+  if (res.dates.length) sheet.getRange(2, res.col + 1, res.dates.length, 1).setValues(res.dates.map(d => [d]));
+  setupRaw();
+  ui.alert('주문일을 채운 행: ' + res.filled + '\n이미 주문일이 있어 그대로 둔 행: ' + res.kept + '\n백업에서 찾지 못한 행: ' + res.unmatched);
+}
+
+// 주문일이 빈 행에만 백업의 시트기재일을 넣은 주문일 칸 값 목록 (같은 위치 → 학교명·판매금액·정산월·구매처2가 하나만 맞는 행 순으로 찾음)
+function orderDatesFromBackup_(oldValues, curValues) {
+  const oh = oldValues[0].map(h => String(h).trim());
+  const ch = curValues[0].map(h => String(h).trim());
+  const so = oh.indexOf('시트기재일');
+  const od = ch.indexOf('주문일');
+  if (so < 0) throw new Error('백업 파일에 시트기재일 칸이 없습니다.');
+  if (od < 0) throw new Error(RAW_TAB + ' 탭에 주문일 칸이 없습니다.');
+  const keyOf = (row, head) => ['학교명', '판매금액', '정산월', '구매처2'].map(h => String(row[head.indexOf(h)]).trim()).join('|');
+  const oldRows = oldValues.slice(1);
+  const byKey = {};
+  oldRows.forEach(r => { const k = keyOf(r, oh); (byKey[k] = byKey[k] || []).push(r); });
+  const empty = v => v === '' || v === null || v === undefined;
+  let filled = 0, kept = 0, unmatched = 0;
+  const dates = curValues.slice(1).map((r, i) => {
+    if (!empty(r[od])) { kept++; return r[od]; }
+    if (!String(r[ch.indexOf('학교명')]).trim()) return r[od];
+    const k = keyOf(r, ch);
+    const src = oldRows[i] && keyOf(oldRows[i], oh) === k ? oldRows[i] : (byKey[k] && byKey[k].length === 1 ? byKey[k][0] : null);
+    if (!src) { unmatched++; return r[od]; }
+    if (empty(src[so])) return r[od];
+    filled++;
+    return src[so];
+  });
+  return { col: od, dates, filled, kept, unmatched };
 }
 
 function ungroupColumns_(sheet) {
