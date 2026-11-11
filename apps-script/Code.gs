@@ -24,10 +24,20 @@ const STEPS = ['계정등록메일', '사이트개설', '계정등록', '문자�
 const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
 const TEACHERMALL_VENDOR = '테크빌';
 
-const INPUT_HEAD = ['상태', '솔루션', '주문일', '주문월', '주문주차', '시트기재일', '예상구매일', '지역', '학교명', '학교급',
-  '구매처1', '구매처2', '인원', '기간', '단가', '가격구분', '판매금액', '예외 리셀비율', '정산월', '정산주차', '실제정산일',
-  '시작일', '만료일', '소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고', '특이사항'];
+// 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
+const INPUT_HEAD = ['주문일', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액',
+  '시작일', '만료일', '소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
+  '정산월', '학교급', '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
+const ORDER_AUTO = ['주문월', '주문주차']; // 주문일에서 자동 (주문일이 없는 예전 건은 값을 그대로 둠)
 const AUTO_HEAD = ['정산지연', '적용 리셀비율', '리셀배분액', '정산금액', '선도구분', '신규/재구매', '진행률'];
+const RAW_LAYOUT = INPUT_HEAD.concat(ORDER_AUTO, AUTO_HEAD);
+const DROPPED_HEAD = ['시트기재일']; // 열 정리 때 지우는 칸
+// [+]/[−]로 접는 묶음. collapsed = 설치 직후 접힌 상태
+const FOLD_GROUPS = [
+  { from: '소통일', to: '티처몰출고', collapsed: false },
+  { from: '정산주차', to: '특이사항', collapsed: true },
+];
+const RENAMED = { '디스픽토': '디스픽트' }; // 잘못 적힌 구매처2 이름 고치기
 const RATE_HEAD = ['구매처2', '적용 시작 정산월', '리셀업체 비율', '매쓰홀릭 비율', '메모'];
 
 // ---- 웹앱 ----
@@ -88,7 +98,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('판매현황')
     .addItem('자동 칸·주차보고 새로고침', 'refreshAll')
     .addSeparator()
-    .addItem('구매현황RAW 서식 설치 (처음 한 번)', 'setupRaw')
+    .addItem('구매현황RAW 열 정리·서식 설치', 'setupRaw')
     .addToUi();
 }
 
@@ -141,20 +151,68 @@ function writeReport_(ss, rep) {
   for (let c = 3; c <= table.values[0].length; c++) sheet.setColumnWidth(c, 110);
 }
 
-// ---- 처음 한 번: 구매현황RAW 서식·드롭다운·자동 새로고침 설치 ----
+// ---- 구매현황RAW 열 정리·서식·드롭다운·자동 새로고침 설치 (다시 실행해도 됩니다) ----
+
+// 열 순서를 RAW_LAYOUT으로 바꿉니다. 모르는 열은 맨 오른쪽에 남기고 DROPPED_HEAD만 지웁니다 (시트 없이 시험할 수 있는 순수 함수)
+function rearrange_(values, layout, dropped) {
+  const head = values[0].map(h => String(h).trim());
+  const extra = head.filter(h => h && layout.indexOf(h) < 0 && dropped.indexOf(h) < 0);
+  const out = layout.concat(extra);
+  const idx = out.map(h => head.indexOf(h));
+  const rows = values.slice(1).filter(r => r.some(v => v !== '' && v !== null));
+  return [out].concat(rows.map(r => idx.map(j => (j >= 0 ? r[j] : ''))));
+}
+
+function arrangeRaw_(ss, sheet) {
+  const values = sheet.getDataRange().getValues();
+  const head = values[0].map(h => String(h).trim());
+  if (RAW_LAYOUT.every((h, i) => head[i] === h) && !DROPPED_HEAD.some(h => head.indexOf(h) >= 0)) return false;
+  // 바꾸기 전에 본인 드라이브에 백업 파일을 만듭니다 (공유되지 않음)
+  const stamp = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm');
+  const backup = SpreadsheetApp.create(RAW_TAB + ' 백업 (열 정리 전) ' + stamp);
+  sheet.copyTo(backup).setName(RAW_TAB);
+  backup.deleteSheet(backup.getSheets()[0]);
+  const next = rearrange_(values, RAW_LAYOUT, DROPPED_HEAD);
+  // 서식·드롭다운·보호·묶음을 모두 지운 뒤 새 순서로 씁니다
+  sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
+  const all = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns());
+  ungroupColumns_(sheet);
+  all.clearDataValidations();
+  all.clearNote();
+  sheet.clearConditionalFormatRules();
+  sheet.clear();
+  const width = next[0].length;
+  if (sheet.getMaxColumns() < width) sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
+  const textCols = ['주문월', '정산월', '정산지연', '선도구분', '신규/재구매', '진행률'];
+  next[0].forEach((h, j) => { if (textCols.indexOf(h) >= 0) sheet.getRange(1, j + 1, sheet.getMaxRows(), 1).setNumberFormat('@'); });
+  sheet.getRange(1, 1, next.length, width).setValues(next);
+  sheet.setColumnWidths(1, sheet.getMaxColumns(), 100);
+  return backup.getUrl();
+}
+
+function ungroupColumns_(sheet) {
+  const all = sheet.getRange(1, 1, 1, sheet.getMaxColumns());
+  for (let i = 0; i < 8; i++) {
+    try { all.shiftColumnGroupDepth(-1); } catch (e) { break; }
+  }
+}
 
 function setupRaw() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(RAW_TAB);
   if (!sheet) throw new Error('"' + RAW_TAB + '" 탭을 먼저 가져와 주세요.');
-  const head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
-  const missing = INPUT_HEAD.concat(AUTO_HEAD).filter(h => head.indexOf(h) < 0);
-  if (missing.length) throw new Error(RAW_TAB + ' 탭에 없는 머리글: ' + missing.join(', '));
   let rates = ss.getSheetByName(RATE_TAB);
   if (!rates) {
     rates = ss.insertSheet(RATE_TAB);
     rates.getRange(1, 1, 1, RATE_HEAD.length).setValues([RATE_HEAD]);
   }
+  Object.keys(RENAMED).forEach(from => {
+    [rates, sheet].forEach(s => s.createTextFinder(from).matchEntireCell(true).replaceAllWith(RENAMED[from]));
+  });
+  const backupUrl = arrangeRaw_(ss, sheet);
+  const head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const missing = RAW_LAYOUT.filter(h => head.indexOf(h) < 0);
+  if (missing.length) throw new Error(RAW_TAB + ' 탭에 없는 머리글: ' + missing.join(', '));
 
   const total = 3000;
   if (sheet.getMaxRows() < total) sheet.insertRowsAfter(sheet.getMaxRows(), total - sheet.getMaxRows());
@@ -166,7 +224,7 @@ function setupRaw() {
 
   // 표시 형식 (텍스트 칸이 날짜로 바뀌지 않도록 먼저 지정)
   ['주문월', '정산월', '정산지연', '선도구분', '신규/재구매', '진행률'].forEach(h => body(h).setNumberFormat('@'));
-  ['주문일', '시트기재일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setNumberFormat('yyyy-mm-dd'));
+  ['주문일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setNumberFormat('yyyy-mm-dd'));
   ['단가', '판매금액', '리셀배분액', '정산금액'].forEach(h => body(h).setNumberFormat('#,##0'));
   ['예외 리셀비율', '적용 리셀비율'].forEach(h => body(h).setNumberFormat('0.0%'));
 
@@ -180,22 +238,23 @@ function setupRaw() {
   body('구매처1').setDataValidation(list(CHANNEL1));
   body('구매처2').setDataValidation(rule().requireValueInRange(rates.getRange('A2:A'), true).setAllowInvalid(false).build());
   body('가격구분').setDataValidation(list(['정상가', '협의가', '확인필요']));
-  body('주문월').setDataValidation(list(months, true));
   body('정산월').setDataValidation(list(months));
-  ['주문주차', '정산주차'].forEach(h => body(h).setDataValidation(rule().requireNumberBetween(0, 6).setAllowInvalid(false).setHelpText('1~6 숫자로 입력합니다. 0 = 주차 구분 없음').build()));
+  body('정산주차').setDataValidation(rule().requireNumberBetween(0, 6).setAllowInvalid(false).setHelpText('1~6 숫자로 입력합니다. 0 = 주차 구분 없음').build());
   body('예외 리셀비율').setDataValidation(rule().requireNumberBetween(0, 1).setAllowInvalid(false).setHelpText('30%처럼 입력합니다. 비워두면 배분비율 탭 기준으로 계산합니다.').build());
-  ['주문일', '시트기재일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setDataValidation(rule().requireDate().setAllowInvalid(true).build()));
+  ['주문일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setDataValidation(rule().requireDate().setAllowInvalid(true).build()));
   STEPS.concat([TEACHERMALL]).forEach(h => body(h).setDataValidation(list(['O', 'X'])));
 
   // 머리글 색: 입력 칸은 파랑, 자동 칸은 회색
   const last = sheet.getLastColumn();
   sheet.getRange(1, 1, 1, last).setFontWeight('bold').setBackground('#E6F4FF').setWrap(true).setVerticalAlignment('middle');
-  AUTO_HEAD.forEach(h => {
+  const autoCols = ORDER_AUTO.concat(AUTO_HEAD);
+  autoCols.forEach(h => {
     sheet.getRange(1, col(h)).setBackground('#D9D9D9').setFontColor('#595959').setNote('자동 계산 칸입니다. 직접 고치면 다음 새로고침 때 덮어씁니다.');
     body(h).setBackground('#FAFAFA').setFontColor('#595959');
   });
-  sheet.getRange(1, col('주문월')).setNote('주문일을 넣으면 자동으로 채워집니다. 예전 건은 원본의 주문월을 그대로 둡니다.');
+  sheet.getRange(1, col('주문월')).setNote('주문일을 넣으면 자동으로 채워집니다. 주문일이 없는 예전 건만 이 칸의 값을 그대로 씁니다.');
   sheet.getRange(1, col('주문주차')).setNote('주문일을 넣으면 자동으로 채워집니다 (월요일 시작, 1일이 속한 주 = 1주차).');
+  sheet.getRange(1, col('정산월')).setNote('정산된 달 (예: 2026-11). 비워두면 주문월 기준으로 집계합니다. 정산지연 = 정산월 − 주문월.');
   sheet.getRange(1, col('정산주차')).setNote('비워두면 실제정산일이 정산월 안에 있을 때 그 날짜의 주차로 계산합니다.');
   sheet.getRange(1, col('예외 리셀비율')).setNote('비워두면 배분비율 탭에서 구매처2와 정산월로 찾습니다. 행별로 다른 비율일 때만 입력합니다.');
   sheet.getRange(1, col('티처몰출고')).setNote('구매처2가 테크빌인 건만 해당합니다.');
@@ -221,8 +280,16 @@ function setupRaw() {
 
   // 자동 칸은 고치려 하면 경고
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).filter(p => p.getDescription() === '자동 계산 칸').forEach(p => p.remove());
-  const firstAuto = Math.min.apply(null, AUTO_HEAD.map(col));
-  sheet.getRange(2, firstAuto, total - 1, AUTO_HEAD.length).protect().setDescription('자동 계산 칸').setWarningOnly(true);
+  const firstAuto = Math.min.apply(null, autoCols.map(col));
+  const lastAuto = Math.max.apply(null, autoCols.map(col));
+  sheet.getRange(2, firstAuto, total - 1, lastAuto - firstAuto + 1).protect().setDescription('자동 계산 칸').setWarningOnly(true);
+
+  // [+]/[−] 접기 묶음
+  ungroupColumns_(sheet);
+  FOLD_GROUPS.forEach(g => {
+    sheet.getRange(1, col(g.from), 1, col(g.to) - col(g.from) + 1).shiftColumnGroupDepth(1);
+    if (g.collapsed) sheet.getColumnGroup(col(g.from), 1).collapse();
+  });
 
   // 배분비율 탭
   rates.getRange(1, 1, 1, RATE_HEAD.length).setFontWeight('bold').setBackground('#E6F4FF');
@@ -239,7 +306,9 @@ function setupRaw() {
     ScriptApp.newTrigger('refreshAll').timeBased().everyHours(1).create();
   }
   refreshAll();
-  try { SpreadsheetApp.getUi().alert('설치가 끝났습니다. 자동 칸과 주차보고 탭이 채워졌습니다.'); } catch (noUi) {}
+  const msg = '설치가 끝났습니다. 자동 칸과 주차보고 탭이 채워졌습니다.' + (backupUrl ? '\n열을 정리하기 전 상태는 내 드라이브의 백업 파일에 있습니다:\n' + backupUrl : '');
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert(msg); } catch (noUi) {}
 }
 
 function columnLetter_(n) {
@@ -397,7 +466,7 @@ function deriveRow_(raw, rates, lead) {
 
   const sol = SOL_KEYS[str_(raw['솔루션'])];
   if (PLAN_STATUSES.indexOf(d.status) >= 0) {
-    const pd = parseDate_(raw['예상구매일']) || orderDate || parseDate_(raw['시트기재일']);
+    const pd = parseDate_(raw['예상구매일']) || orderDate;
     if (sol && pd && school) d.plan = { sol, school, region, amt: amt || 0, st: 0, orderYm: ym_(pd.y, pd.m), orderWeek: weekOfMonth_(pd) };
     return d;
   }
