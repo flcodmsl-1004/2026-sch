@@ -38,7 +38,13 @@ const FOLD_GROUPS = [
   { from: '소통일', to: '티처몰출고', collapsed: false },
   { from: '정산주차', to: '특이사항', collapsed: true },
 ];
-const RENAMED = { '디스픽토': '디스픽트' }; // 잘못 적힌 구매처2 이름 고치기
+// 칸 값별 배경색 (구분용)
+const TINTS = {
+  '구매처1': { '본사계좌': '#DDEFFF', '학교장터': '#E2F5DD' },
+  '구매처2': { '테크빌': '#EDEDED' },
+  '솔루션': { '매쓰홀릭스쿨': '#FFE9D6', '글잼스쿨': '#EEE4FF' },
+};
+const RENAMED ={ '디스픽토': '디스픽트' }; // 잘못 적힌 구매처2 이름 고치기
 const RATE_HEAD = ['구매처2', '적용 시작 정산월', '리셀업체 비율', '매쓰홀릭 비율', '메모'];
 
 // ---- 웹앱 ----
@@ -321,6 +327,10 @@ function setupRaw() {
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('확인 필요').setBackground('#FFE7BA').setRanges([body('적용 리셀비율')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('신규').setFontColor('#1677FF').setBold(true).setRanges([body('신규/재구매')]).build(),
   ];
+  // 구분용 배경색 (위의 경고 색이 먼저 적용됩니다)
+  Object.keys(TINTS).forEach(h => Object.keys(TINTS[h]).forEach(v => {
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(v).setBackground(TINTS[h][v]).setRanges([body(h)]).build());
+  }));
   sheet.setConditionalFormatRules(rules);
 
   // 자동 칸은 고치려 하면 경고
