@@ -1,8 +1,6 @@
 // 판매현황 대시보드 집계 API
-// 구글시트의 원본을 읽어 "집계 숫자만" 대시보드로 보냅니다. 학교별 행은 응답에 포함되지 않습니다.
-
-// ▼ 여기만 직접 바꾸세요. 비밀번호를 정해 따옴표 안에 입력합니다.
-const PASSWORD = '여기에-비밀번호-입력';
+// 구글시트의 원본을 읽어 "집계 숫자만" 대시보드로 보냅니다. 연락처·메모는 응답에 포함되지 않습니다.
+// 비밀번호 없이 공개됩니다. 대시보드 주소를 아는 사람은 누구나 응답을 볼 수 있습니다.
 
 const REPORT_YEAR = 2026;      // 이 연도의 결제 건만 집계합니다
 const NEW_TAB = '시트1';        // 앞으로 구매 건을 입력하는 탭
@@ -11,7 +9,6 @@ const LEAD_TAB = '선도학교';     // 2026 선도·AI중점 명단
 const INSIGHT_TAB = '인사이트';  // 대시보드 하단 인사이트 문구
 const NOTE_TAB = '만료관리';     // 후속 상태·메모 (연락처 칸은 대시보드로 보내지 않습니다)
 const CACHE_SECONDS = 60;
-const MAX_FAILS = 10;          // 비밀번호를 5분 안에 이만큼 틀리면 5분간 차단
 
 const REGIONS = ['전북', '경기', '세종', '울산', '제주', '경북', '부산', '전남', '충남', '충북', '서울', '강원', '광주', '대전', '인천', '경남', '대구'];
 const LEAD_REGIONS = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
@@ -26,14 +23,6 @@ function doGet() {
 function doPost(e) {
   try {
     const cache = CacheService.getScriptCache();
-    const fails = Number(cache.get('fails') || 0);
-    if (fails >= MAX_FAILS) return json_({ status: 'locked' });
-    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    if (PASSWORD === '여기에-비밀번호-입력') return json_({ status: 'setup' });
-    if (body.password !== PASSWORD) {
-      cache.put('fails', String(fails + 1), 300);
-      return json_({ status: 'denied' });
-    }
     const cached = cache.get('result');
     if (cached) return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
     const text = JSON.stringify(Object.assign({ status: 'ok' }, buildResult_()));
