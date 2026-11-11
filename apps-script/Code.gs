@@ -339,6 +339,21 @@ function setupRaw() {
       .setBackground('#FFF1F0').setFontColor('#CF1322').setRanges([body('사이트개설')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(ISNUMBER($' + r('단가') + '),$' + r('단가') + '<3000)')
       .setBackground('#FFE1EA').setRanges([body('단가')]).build(),
+    // 본사계좌·학교장터 구매완료인데 입금확인이 비어 있음
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(OR($' + r('구매처1') + '="본사계좌",$' + r('구매처1') + '="학교장터"),$' + r('상태') + '="구매완료",$' + r('입금확인') + '="")')
+      .setBackground('#FFCCC7').setRanges([body('입금확인')]).build(),
+    // 리셀업체 건은 입금확인이 필요 없음
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$' + r('구매처1') + '="리셀업체"')
+      .setBackground('#F0F0F0').setFontColor('#BFBFBF').setRanges([body('입금확인')]).build(),
+    // 만료일이 오늘부터 30일 안 (재구매 연락 시점)
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(ISNUMBER($' + r('만료일') + '),$' + r('만료일') + '>=TODAY(),$' + r('만료일') + '-TODAY()<=30)')
+      .setBackground('#FFE2C2').setRanges([body('만료일')]).build(),
+    // 구매완료인데 주문일로부터 30일이 지나도록 정산월이 비어 있음
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($' + r('상태') + '="구매완료",$' + r('정산월') + '="",ISNUMBER($' + r('주문일') + '),TODAY()-$' + r('주문일') + '>30)')
+      .setBackground('#FFCCC7').setRanges([body('정산월')]).build(),
+    // 예외 리셀비율이 들어간 행 (일반 규칙과 다른 비율)
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=ISNUMBER($' + r('예외 리셀비율') + ')')
+      .setBackground('#EEE4FF').setRanges([body('예외 리셀비율')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('확인 필요').setBackground('#FFE7BA').setRanges([body('적용 리셀비율')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('신규').setFontColor('#1677FF').setBold(true).setRanges([body('신규/재구매')]).build(),
   ];
