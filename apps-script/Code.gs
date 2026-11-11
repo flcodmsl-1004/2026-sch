@@ -26,16 +26,19 @@ const TEACHERMALL_VENDOR = '테크빌';
 
 // 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
 const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액', '입금확인',
-  '시작일', '만료일', '소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
+  '시작일', '만료일', '개설소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
   '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
 // 학교급은 학교명에서, 주문월·주문주차는 주문일에서 자동 (주문일이 없는 예전 건은 주문월·주차 값을 그대로 둠)
 const ORDER_AUTO = ['학교급', '주문월', '주문주차'];
 const AUTO_HEAD = ['정산지연', '적용 리셀비율', '리셀배분액', '정산금액', '선도구분', '신규/재구매', '진행률'];
 const RAW_LAYOUT = INPUT_HEAD.concat(ORDER_AUTO, AUTO_HEAD);
 const DROPPED_HEAD = ['시트기재일']; // 열 정리 때 지우는 칸
+const MERGED_HEAD = { '소통일': '개설소통일' }; // 예전 이름 칸 → 새 이름 칸 (새 칸이 비어 있을 때만 값을 옮기고 예전 칸은 지움)
+// 달력에서 고르는 날짜 칸 (날짜가 아닌 글자는 입력되지 않음)
+const DATE_HEAD = ['주문일', '시작일', '만료일', '개설소통일', '실제정산일', '예상구매일'];
 // [+]/[−]로 접는 묶음. collapsed = 설치 직후 접힌 상태
 const FOLD_GROUPS = [
-  { from: '소통일', to: '티처몰출고', collapsed: false },
+  { from: '개설소통일', to: '티처몰출고', collapsed: false },
   { from: '정산주차', to: '특이사항', collapsed: true },
 ];
 // 칸 값별 배경색 (구분용)
@@ -163,25 +166,29 @@ function writeReport_(ss, rep) {
 // ---- 구매현황RAW 열 정리·서식·드롭다운·자동 새로고침 설치 (다시 실행해도 됩니다) ----
 
 // 열 순서를 RAW_LAYOUT으로 바꿉니다. 모르는 열은 맨 오른쪽에 남기고 DROPPED_HEAD만 지웁니다 (시트 없이 시험할 수 있는 순수 함수)
-function rearrange_(values, layout, dropped) {
+function rearrange_(values, layout, dropped, merged) {
+  merged = merged || {};
   const head = values[0].map(h => String(h).trim());
-  const extra = head.filter(h => h && layout.indexOf(h) < 0 && dropped.indexOf(h) < 0);
+  const gone = dropped.concat(Object.keys(merged));
+  const extra = head.filter(h => h && layout.indexOf(h) < 0 && gone.indexOf(h) < 0);
   const out = layout.concat(extra);
-  const idx = out.map(h => head.indexOf(h));
-  const rows = values.slice(1).filter(r => r.some(v => v !== '' && v !== null));
-  return [out].concat(rows.map(r => idx.map(j => (j >= 0 ? r[j] : ''))));
+  // 칸마다 값을 가져올 원래 열들 (새 이름 칸 먼저, 그다음 예전 이름 칸)
+  const srcs = out.map(h => [head.indexOf(h)].concat(Object.keys(merged).filter(k => merged[k] === h).map(k => head.indexOf(k))).filter(j => j >= 0));
+  const empty = v => v === '' || v === null || v === undefined;
+  const rows = values.slice(1).filter(r => r.some(v => !empty(v)));
+  return [out].concat(rows.map(r => srcs.map(js => { for (const j of js) if (!empty(r[j])) return r[j]; return ''; })));
 }
 
 function arrangeRaw_(ss, sheet) {
   const values = sheet.getDataRange().getValues();
   const head = values[0].map(h => String(h).trim());
-  if (RAW_LAYOUT.every((h, i) => head[i] === h) && !DROPPED_HEAD.some(h => head.indexOf(h) >= 0)) return false;
+  if (RAW_LAYOUT.every((h, i) => head[i] === h) && !DROPPED_HEAD.concat(Object.keys(MERGED_HEAD)).some(h => head.indexOf(h) >= 0)) return false;
   // 바꾸기 전에 본인 드라이브에 백업 파일을 만듭니다 (공유되지 않음)
   const stamp = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm');
   const backup = SpreadsheetApp.create(RAW_TAB + ' 백업 (열 정리 전) ' + stamp);
   sheet.copyTo(backup).setName(RAW_TAB);
   backup.deleteSheet(backup.getSheets()[0]);
-  const next = rearrange_(values, RAW_LAYOUT, DROPPED_HEAD);
+  const next = rearrange_(values, RAW_LAYOUT, DROPPED_HEAD, MERGED_HEAD);
   // 서식·드롭다운·보호·묶음을 모두 지운 뒤 새 순서로 씁니다
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
   const all = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns());
@@ -275,7 +282,7 @@ function setupRaw() {
 
   // 표시 형식 (텍스트 칸이 날짜로 바뀌지 않도록 먼저 지정)
   ['주문월', '정산월', '입금확인', '정산지연', '선도구분', '신규/재구매', '진행률'].forEach(h => body(h).setNumberFormat('@'));
-  ['주문일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setNumberFormat('yyyy-mm-dd'));
+  DATE_HEAD.forEach(h => body(h).setNumberFormat('yyyy-mm-dd'));
   ['단가', '판매금액', '리셀배분액', '정산금액'].forEach(h => body(h).setNumberFormat('#,##0'));
   ['예외 리셀비율', '적용 리셀비율'].forEach(h => body(h).setNumberFormat('0.0%'));
 
@@ -291,7 +298,9 @@ function setupRaw() {
   body('정산월').setDataValidation(list(months));
   body('정산주차').setDataValidation(rule().requireNumberBetween(0, 6).setAllowInvalid(false).setHelpText('1~6 숫자로 입력합니다. 0 = 주차 구분 없음').build());
   body('예외 리셀비율').setDataValidation(rule().requireNumberBetween(0, 1).setAllowInvalid(false).setHelpText('30%처럼 입력합니다. 비워두면 배분비율 탭 기준으로 계산합니다.').build());
-  ['주문일', '예상구매일', '실제정산일', '시작일', '만료일', '소통일'].forEach(h => body(h).setDataValidation(rule().requireDate().setAllowInvalid(true).build()));
+  // 날짜 칸: 더블클릭하면 달력이 열리고, 날짜가 아닌 글자는 입력되지 않음
+  DATE_HEAD.forEach(h => body(h).setDataValidation(rule().requireDate().setAllowInvalid(false)
+    .setHelpText('더블클릭해서 달력에서 고르거나 2026-11-12 형식으로 입력합니다.').build()));
   STEPS.concat([TEACHERMALL]).forEach(h => body(h).setDataValidation(list(['O', 'X'])));
 
   // 머리글 색: 입력 칸은 파랑, 자동 칸은 회색
@@ -316,6 +325,8 @@ function setupRaw() {
   sheet.setRowHeight(1, 42);
   ['비고', '특이사항'].forEach(h => { sheet.setColumnWidth(col(h), 240); body(h).setWrap(true); });
   sheet.setColumnWidth(col('학교명'), 160);
+  body('판매금액').setBackground('#FFF4D1'); // 판매금액 강조 (연한 노랑)
+  sheet.getRange(1, col('개설소통일')).setNote('개설 관련 통화를 한 날짜. 더블클릭하면 달력이 열립니다.');
 
   // 조건부 서식
   const r = h => letter(h) + '2';
@@ -326,6 +337,8 @@ function setupRaw() {
       .setBackground('#F0F0F0').setFontColor('#BFBFBF').setRanges([body(TEACHERMALL)]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($' + r('상태') + '="구매완료",ISNUMBER($' + r('주문일') + '),TODAY()-$' + r('주문일') + '>7,$' + r('사이트개설') + '<>"O")')
       .setBackground('#FFF1F0').setFontColor('#CF1322').setRanges([body('사이트개설')]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(ISNUMBER($' + r('단가') + '),$' + r('단가') + '<3000)')
+      .setBackground('#FFE1EA').setRanges([body('단가')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('확인 필요').setBackground('#FFE7BA').setRanges([body('적용 리셀비율')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('신규').setFontColor('#1677FF').setBold(true).setRanges([body('신규/재구매')]).build(),
   ];
