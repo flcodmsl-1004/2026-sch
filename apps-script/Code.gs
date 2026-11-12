@@ -19,17 +19,18 @@ const LEVELS = ['초등', '중등', '고등', '기타'];
 const SOL_KEYS = { '매쓰홀릭스쿨': 'M', '글잼스쿨': 'G' };
 const STATUSES = ['문의', '견적서발송', '결제대기', '구매완료', '취소'];
 const PLAN_STATUSES = ['견적', '견적서발송', '결제대기']; // 주차보고의 '예정'으로 셉니다
-const CONTACT_TAB = '연락처'; // 담당자 연락처. 스크립트는 이 탭을 절대 읽지 않습니다 (대시보드로 나가지 않음)
-const CONTACT_HEAD = ['학교명', '지역', '담당자', '직위', '전화', '이메일', '메모'];
+// 담당자 연락처: 구매현황RAW 학교명 바로 오른쪽 칸. 스크립트가 읽을 때 이 칸들은 건너뛰므로 대시보드로 나가지 않습니다
+const CONTACT_HEAD = ['담당자', '직위', '전화', '이메일'];
+const OLD_CONTACT_TAB = '연락처'; // 예전에 만든 별도 탭 (비어 있을 때만 설치 때 지움)
 const CHANNEL1 = ['본사계좌', '학교장터', '리셀업체'];
 const STEPS = ['계정등록메일', '사이트개설', '계정등록', '문자안내'];
 const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
 const TEACHERMALL_VENDOR = '테크빌';
 
 // 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
-const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명', '구매처1', '구매처2', '인원', '기간', '단가', '판매금액', '입금확인',
+const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명'].concat(CONTACT_HEAD, ['구매처1', '구매처2', '인원', '기간', '단가', '판매금액', '입금확인',
   '시작일', '만료일', '개설소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
-  '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항'];
+  '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항']);
 // 학교급은 학교명에서, 주문월·주문주차는 주문일에서 자동 (주문일이 없는 예전 건은 주문월·주차 값을 그대로 둠)
 const ORDER_AUTO = ['학교급', '주문월', '주문주차'];
 const AUTO_HEAD = ['정산지연', '적용 리셀비율', '리셀배분액', '정산금액', '선도구분', '신규/재구매', '진행률'];
@@ -76,7 +77,7 @@ function json_(obj) {
 }
 
 function readTab_(ss, name, required) {
-  if (name === CONTACT_TAB) throw new Error('연락처 탭은 읽지 않습니다.'); // 개인정보가 웹앱 응답에 섞이지 않도록
+  if (name === OLD_CONTACT_TAB) throw new Error('연락처 탭은 읽지 않습니다.'); // 개인정보가 웹앱 응답에 섞이지 않도록
   const sheet = ss.getSheetByName(name);
   if (!sheet) {
     if (required) throw new Error('"' + name + '" 탭을 찾을 수 없습니다.');
@@ -89,6 +90,7 @@ function readTab_(ss, name, required) {
   return values.slice(1).map((row, i) => {
     const o = { __row: i + 2, __tab: name };
     head.forEach((h, j) => {
+      if (CONTACT_HEAD.indexOf(h) >= 0) return; // 연락처 칸은 아예 읽지 않음
       const v = row[j];
       o[h] = v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : v;
     });
@@ -112,7 +114,6 @@ function onOpen() {
     .addItem('자동 칸·주차보고 새로고침', 'refreshAll')
     .addSeparator()
     .addItem('구매현황RAW 열 정리·서식 설치', 'setupRaw')
-    .addItem('연락처 탭 만들기', 'setupContacts')
     .addToUi();
 }
 
@@ -209,12 +210,16 @@ function arrangeRaw_(ss, sheet) {
   });
   // 2) 지우는 칸 삭제
   DROPPED_HEAD.forEach(name => { const i = headNow().indexOf(name); if (i >= 0) sheet.deleteColumn(i + 1); });
-  // 3) 없는 칸은 맨 오른쪽에 새로 만들고, 4) 정해진 순서로 옮김 (모르는 칸은 오른쪽에 남음)
-  RAW_LAYOUT.forEach(name => {
-    if (headNow().indexOf(name) < 0) {
-      sheet.insertColumnAfter(sheet.getLastColumn());
-      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(name);
-    }
+  // 3) 없는 칸은 순서상 바로 앞 칸의 오른쪽에 새로 만듭니다 (왼쪽 칸의 정렬·테두리·색을 그대로 물려받음)
+  //    앞 칸도 없으면 맨 오른쪽에 만들고, 4) 정해진 순서로 옮김 (모르는 칸은 오른쪽에 남음)
+  RAW_LAYOUT.forEach((name, k) => {
+    const h = headNow();
+    if (h.indexOf(name) >= 0) return;
+    const prev = k > 0 ? h.indexOf(RAW_LAYOUT[k - 1]) : -1;
+    const at = prev >= 0 ? prev + 1 : sheet.getLastColumn();
+    sheet.insertColumnAfter(at);
+    sheet.getRange(1, at + 1).setValue(name);
+    sheet.getRange(2, at + 1, sheet.getMaxRows() - 1, 1).clearContent().clearDataValidations();
   });
   RAW_LAYOUT.forEach((name, i) => {
     const at = headNow().indexOf(name);
@@ -265,33 +270,6 @@ function orderDatesFromBackup_(oldValues, curValues) {
   return { col: od, dates, filled, kept, unmatched };
 }
 
-// 연락처 탭을 만듭니다. 이미 있으면 아무것도 바꾸지 않습니다
-function setupContacts() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(CONTACT_TAB);
-  let msg = '"' + CONTACT_TAB + '" 탭이 이미 있어서 그대로 두었습니다.';
-  if (!sheet) {
-    sheet = ss.insertSheet(CONTACT_TAB);
-    const n = CONTACT_HEAD.length;
-    sheet.getRange(1, 1, 1, n).setValues([CONTACT_HEAD]).setFontWeight('bold').setBackground('#E6F4FF').setVerticalAlignment('middle');
-    sheet.setFrozenRows(1);
-    sheet.getRange(2, 1, sheet.getMaxRows() - 1, n).setNumberFormat('@'); // 전화번호 앞의 0이 사라지지 않도록 글자로
-    const raw = ss.getSheetByName(RAW_TAB);
-    if (raw) {
-      const h = raw.getRange(1, 1, 1, raw.getLastColumn()).getValues()[0].map(x => String(x).trim());
-      const c = h.indexOf('학교명') + 1;
-      if (c > 0) sheet.getRange(2, 1, sheet.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation()
-        .requireValueInRange(raw.getRange(2, c, raw.getMaxRows() - 1, 1), true).setAllowInvalid(true)
-        .setHelpText('구매현황RAW의 학교명과 똑같이 적어야 찾기 쉽습니다.').build());
-    }
-    sheet.getRange(2, 2, sheet.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(LEAD_REGIONS, true).setAllowInvalid(true).build());
-    [180, 70, 90, 90, 130, 200, 300].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-    sheet.getRange(1, 1).setNote('이 탭은 대시보드로 보내지 않습니다. 시트를 공유받은 사람은 모두 볼 수 있으니 공유 대상을 확인하세요.');
-    msg = '"' + CONTACT_TAB + '" 탭을 만들었습니다.';
-  }
-  try { SpreadsheetApp.getUi().alert(msg); } catch (noUi) {}
-}
-
 function ungroupColumns_(sheet) {
   const all = sheet.getRange(1, 1, 1, sheet.getMaxColumns());
   for (let i = 0; i < 8; i++) {
@@ -333,6 +311,7 @@ function setupRaw() {
   const each = (names, fn) => names.filter(fresh).forEach(fn);
 
   // 표시 형식 (텍스트 칸이 날짜로 바뀌지 않도록 먼저 지정)
+  each(CONTACT_HEAD, h => body(h).setNumberFormat('@')); // 전화번호 앞의 0이 사라지지 않도록 글자로
   each(['주문월', '정산월', '입금확인', '정산지연', '선도구분', '신규/재구매', '진행률'], h => body(h).setNumberFormat('@'));
   each(DATE_HEAD, h => body(h).setNumberFormat('yyyy-mm-dd'));
   each(['단가', '판매금액', '리셀배분액', '정산금액'], h => body(h).setNumberFormat('#,##0'));
@@ -359,7 +338,10 @@ function setupRaw() {
 
   // 머리글 색(입력 칸 파랑, 자동 칸 회색)·칸 너비·판매금액 강조
   const autoCols = ORDER_AUTO.concat(AUTO_HEAD);
-  each(RAW_LAYOUT, h => sheet.getRange(1, col(h)).setFontWeight('bold').setBackground('#E6F4FF').setWrap(true).setVerticalAlignment('middle'));
+  // 연락처 칸은 학교명 칸의 머리글·정렬·테두리를 그대로 물려받으므로 너비만 정합니다
+  const widths = { '담당자': 80, '직위': 70, '전화': 120, '이메일': 190 };
+  each(CONTACT_HEAD, h => sheet.setColumnWidth(col(h), widths[h]));
+  each(RAW_LAYOUT.filter(h => CONTACT_HEAD.indexOf(h) < 0), h => sheet.getRange(1, col(h)).setFontWeight('bold').setBackground('#E6F4FF').setWrap(true).setVerticalAlignment('middle'));
   each(autoCols, h => { sheet.getRange(1, col(h)).setBackground('#D9D9D9').setFontColor('#595959'); body(h).setBackground('#FAFAFA').setFontColor('#595959'); });
   each(['입금확인'], h => sheet.setColumnWidth(col(h), 150));
   each(['비고', '특이사항'], h => { sheet.setColumnWidth(col(h), 240); body(h).setWrap(true); });
@@ -380,6 +362,7 @@ function setupRaw() {
     '티처몰출고': '구매처2가 테크빌인 건만 해당합니다.',
     '예상구매일': '상태가 ' + PLAN_STATUSES.join('·') + '인 건의 예상 구매일. 주차보고의 예정에 들어갑니다.',
     '개설소통일': '개설 관련 통화를 한 날짜. 더블클릭하면 달력이 열립니다.',
+    '담당자': '담당자·직위·전화·이메일은 대시보드로 보내지 않습니다. 시트 편집자는 모두 볼 수 있습니다.',
   };
   Object.keys(notes).forEach(h => sheet.getRange(1, col(h)).setNote(notes[h]));
 
@@ -455,6 +438,10 @@ function setupRaw() {
     rates.setColumnWidth(5, 360);
   }
   props.setProperty('RATE_STYLED', '1');
+
+  // 예전에 만든 연락처 탭은 비어 있을 때만 지웁니다 (내용이 있으면 그대로 둠)
+  const oldContact = ss.getSheetByName(OLD_CONTACT_TAB);
+  if (oldContact && oldContact.getLastRow() <= 1) ss.deleteSheet(oldContact);
 
   // 예전 탭은 숨기고, 1시간마다 자동 새로고침
   OLD_TABS.forEach(name => { const s = ss.getSheetByName(name); if (s) s.hideSheet(); });
