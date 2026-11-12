@@ -22,6 +22,15 @@ const PLAN_STATUSES = ['견적', '견적서발송', '결제대기']; // 주차�
 // 담당자 연락처: 구매현황RAW 학교명 바로 오른쪽 칸. 스크립트가 읽을 때 이 칸들은 건너뛰므로 대시보드로 나가지 않습니다
 const CONTACT_HEAD = ['담당자', '직위', '전화', '이메일'];
 const OLD_CONTACT_TAB = '연락처'; // 예전에 만든 별도 탭 (비어 있을 때만 설치 때 지움)
+// 구매 전 소통 기록. 선생님 연락처가 있으므로 스크립트는 이 탭을 읽지 않습니다 (대시보드로 나가지 않음)
+const INQUIRY_TAB = '문의사항';
+const INQUIRY_HEAD = ['문의일', '담당자', '학교명', '선생님명', '연락처', '이메일', '유입경로', '솔루션명', '구분', '소통내용', '완료', '구매여부'];
+const INQUIRY_LISTS = {
+  '담당자': ['이성혜', '서형동', '이채은', '기타'],
+  '유입경로': ['법인폰', '홈페이지', '만족팀', '기타'],
+  '솔루션명': ['매쓰홀릭스쿨', '글잼스쿨', '기타'],
+  '구분': ['가격문의', '견적서', '구매이후', '문의', '연수문의'],
+};
 const CHANNEL1 = ['본사계좌', '학교장터', '리셀업체'];
 const STEPS = ['계정등록메일', '사이트개설', '계정등록', '문자안내'];
 const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
@@ -85,7 +94,7 @@ function json_(obj) {
 }
 
 function readTab_(ss, name, required) {
-  if (name === OLD_CONTACT_TAB) throw new Error('연락처 탭은 읽지 않습니다.'); // 개인정보가 웹앱 응답에 섞이지 않도록
+  if (name === OLD_CONTACT_TAB || name === INQUIRY_TAB) throw new Error('"' + name + '" 탭은 읽지 않습니다.'); // 개인정보가 웹앱 응답에 섞이지 않도록
   const sheet = ss.getSheetByName(name);
   if (!sheet) {
     if (required) throw new Error('"' + name + '" 탭을 찾을 수 없습니다.');
@@ -122,6 +131,7 @@ function onOpen() {
     .addItem('자동 칸·주차보고 새로고침', 'refreshAll')
     .addSeparator()
     .addItem('구매현황RAW 열 정리·서식 설치', 'setupRaw')
+    .addItem('문의사항 탭 만들기', 'setupInquiry')
     .addToUi();
 }
 
@@ -276,6 +286,87 @@ function orderDatesFromBackup_(oldValues, curValues) {
     return src[so];
   });
   return { col: od, dates, filled, kept, unmatched };
+}
+
+// ---- 문의사항 탭 (구매 전 소통 기록) ----
+
+// 구매여부 수식: 구매현황RAW에서 같은 학교명의 가장 아래(최근) 행의 상태. 없으면 빈칸
+function inquiryStatusFormula_(schoolLetter, statusLetter, row) {
+  const raw = "'" + RAW_TAB + "'!";
+  const sch = raw + '$' + schoolLetter + '$2:$' + schoolLetter;
+  const st = raw + '$' + statusLetter + '$2:$' + statusLetter;
+  return '=IF(TRIM($C' + row + ')="","",IFERROR(ARRAYFORMULA(INDEX(SORT(FILTER({ROW(' + sch + '),' + st + '},TRIM(' + sch + ')=TRIM($C' + row + ')),1,FALSE),1,2)),""))';
+}
+
+// 문의사항 탭을 만듭니다. 이미 있으면 아무것도 바꾸지 않습니다 (직접 바꾼 서식·내용 보호)
+function setupInquiry() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let msg = '"' + INQUIRY_TAB + '" 탭이 이미 있어서 그대로 두었습니다.';
+  if (!ss.getSheetByName(INQUIRY_TAB)) {
+    const raw = ss.getSheetByName(RAW_TAB);
+    if (!raw) throw new Error('"' + RAW_TAB + '" 탭을 찾을 수 없습니다.');
+    const rh = raw.getRange(1, 1, 1, raw.getLastColumn()).getValues()[0].map(h => String(h).trim());
+    if (rh.indexOf('학교명') < 0 || rh.indexOf('상태') < 0) throw new Error(RAW_TAB + ' 탭에 학교명·상태 머리글이 없습니다.');
+    const schoolL = columnLetter_(rh.indexOf('학교명') + 1), statusL = columnLetter_(rh.indexOf('상태') + 1);
+
+    const sheet = ss.insertSheet(INQUIRY_TAB, ss.getSheets().indexOf(raw) + 1);
+    const total = 1000;
+    if (sheet.getMaxRows() < total) sheet.insertRowsAfter(sheet.getMaxRows(), total - sheet.getMaxRows());
+    const n = INQUIRY_HEAD.length;
+    if (sheet.getMaxColumns() > n) sheet.deleteColumns(n + 1, sheet.getMaxColumns() - n);
+    const col = h => INQUIRY_HEAD.indexOf(h) + 1;
+    const L = h => columnLetter_(col(h));
+    const body = h => sheet.getRange(2, col(h), total - 1, 1);
+    const rule = () => SpreadsheetApp.newDataValidation();
+
+    sheet.getRange(1, 1, 1, n).setValues([INQUIRY_HEAD]).setFontWeight('bold').setBackground('#E6F4FF')
+      .setVerticalAlignment('middle').setHorizontalAlignment('center');
+    sheet.setFrozenRows(1);
+    sheet.setRowHeight(1, 32);
+    sheet.getRange(2, 1, total - 1, n).setHorizontalAlignment('left').setVerticalAlignment('middle');
+
+    // 입력 형식
+    ['학교명', '선생님명', '연락처', '이메일', '소통내용'].forEach(h => body(h).setNumberFormat('@')); // 전화번호 앞 0 유지
+    body('문의일').setNumberFormat('yyyy-mm-dd').setHorizontalAlignment('center')
+      .setDataValidation(rule().requireDate().setAllowInvalid(false).setHelpText('더블클릭해서 달력에서 고르거나 2026-11-12 형식으로 입력합니다.').build());
+    Object.keys(INQUIRY_LISTS).forEach(h => body(h).setDataValidation(rule().requireValueInList(INQUIRY_LISTS[h], true).setAllowInvalid(false).build()));
+    body('완료').insertCheckboxes().setHorizontalAlignment('center');
+    body('소통내용').setWrap(true);
+
+    // 구매여부: 구매현황RAW의 같은 학교 상태를 자동으로 가져옴
+    body('구매여부').setHorizontalAlignment('center')
+      .setFormulas(Array.from({ length: total - 1 }, (_, i) => [inquiryStatusFormula_(schoolL, statusL, i + 2)]));
+    body('구매여부').protect().setDescription('자동 계산 칸').setWarningOnly(true);
+
+    // 학교명 강조: 완료 안 됨 = 파란 글자 / 견적서발송 = 연한 주황 배경 / 구매완료 = 연한 초록 배경
+    // (한 칸에는 맞는 규칙 하나만 적용되므로, 두 조건이 겹치는 경우를 먼저 둡니다)
+    const open = 'TRIM($C2)<>"",$' + L('완료') + '2<>TRUE';
+    const st = v => '$' + L('구매여부') + '2="' + v + '"';
+    const BLUE = '#1677FF', ORANGE = '#FFE2C2', GREEN = '#D9F2D0';
+    const cf = (formula, bg, font) => {
+      let b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setRanges([body('학교명')]);
+      if (bg) b = b.setBackground(bg);
+      if (font) b = b.setFontColor(font);
+      return b.build();
+    };
+    sheet.setConditionalFormatRules([
+      cf('=AND(' + open + ',' + st('견적서발송') + ')', ORANGE, BLUE),
+      cf('=AND(' + open + ',' + st('구매완료') + ')', GREEN, BLUE),
+      cf('=AND(' + open + ')', null, BLUE),
+      cf('=' + st('견적서발송'), ORANGE, null),
+      cf('=' + st('구매완료'), GREEN, null),
+    ]);
+
+    // 칸 너비와 머리글 메모
+    const widths = { '문의일': 100, '담당자': 80, '학교명': 170, '선생님명': 90, '연락처': 120, '이메일': 190, '유입경로': 90, '솔루션명': 110, '구분': 90, '소통내용': 380, '완료': 60, '구매여부': 100 };
+    INQUIRY_HEAD.forEach(h => sheet.setColumnWidth(col(h), widths[h]));
+    sheet.getRange(1, col('학교명')).setNote('구매현황RAW와 똑같은 학교명으로 적어야 구매여부가 나옵니다.\n완료에 체크하지 않은 건은 파란 글자, 구매여부가 견적서발송이면 연한 주황, 구매완료면 연한 초록 배경입니다.');
+    sheet.getRange(1, col('구매여부')).setNote('자동 계산 칸: 구매현황RAW에서 같은 학교명의 가장 아래(최근) 행 상태를 가져옵니다. 없으면 빈칸입니다.');
+    sheet.getRange(1, col('완료')).setNote('소통이 끝나면 체크합니다. 체크하지 않은 건만 후속 관리 대상입니다.');
+    sheet.getRange(1, col('연락처')).setNote('이 탭은 대시보드로 보내지 않습니다. 시트 편집자는 모두 볼 수 있습니다.');
+    msg = '"' + INQUIRY_TAB + '" 탭을 만들었습니다.';
+  }
+  try { SpreadsheetApp.getUi().alert(msg); } catch (noUi) {}
 }
 
 // 행마다 단가 칸에 수식을 넣을지 (true) 직접 적은 값을 그대로 둘지 (false) (시트 없이 시험할 수 있는 순수 함수)
