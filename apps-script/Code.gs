@@ -28,13 +28,21 @@ const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
 const TEACHERMALL_VENDOR = '테크빌';
 
 // 구매현황RAW 열 순서 (왼쪽부터). 입력 칸(파랑) 다음에 자동 칸(회색)이 옵니다
-const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명'].concat(CONTACT_HEAD, ['구매처1', '구매처2', '인원', '기간', '단가', '판매금액', '입금확인',
+const INPUT_HEAD = ['주문일', '정산월', '상태', '솔루션', '지역', '학교명'].concat(CONTACT_HEAD, ['구매처1', '구매처2', '인원', '기간', '단가', '판매금액', '입금확인', '특이사항',
   '시작일', '만료일', '개설소통일', '계정등록메일', '사이트개설', '계정등록', '문자안내', '티처몰출고', '비고',
-  '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일', '특이사항']);
+  '정산주차', '실제정산일', '예외 리셀비율', '가격구분', '예상구매일']);
 // 학교급은 학교명에서, 주문월·주문주차는 주문일에서 자동 (주문일이 없는 예전 건은 주문월·주차 값을 그대로 둠)
 const ORDER_AUTO = ['학교급', '주문월', '주문주차'];
 const AUTO_HEAD = ['정산지연', '적용 리셀비율', '리셀배분액', '정산금액', '선도구분', '신규/재구매', '진행률'];
-const RAW_LAYOUT = INPUT_HEAD.concat(ORDER_AUTO, AUTO_HEAD);
+// 선도구분(자동)은 선도학교인지 바로 보이도록 지역 앞에 둡니다
+const FRONT_AUTO = { '선도구분': '지역' };
+const RAW_LAYOUT = (() => {
+  const l = INPUT_HEAD.concat(ORDER_AUTO, AUTO_HEAD.filter(h => !FRONT_AUTO[h]));
+  Object.keys(FRONT_AUTO).forEach(h => l.splice(l.indexOf(FRONT_AUTO[h]), 0, h));
+  return l;
+})();
+// 단가 = 판매금액 ÷ 인원 ÷ 기간 (행마다 수식. 직접 적은 다른 값은 그 행만 그대로 둠)
+const PRICE_FORMULA_KEY = 'PRICE_FORMULA';
 const DROPPED_HEAD = ['시트기재일']; // 열 정리 때 지우는 칸
 const MERGED_HEAD = { '소통일': '개설소통일' }; // 예전 이름 칸 → 새 이름 칸 (새 칸이 비어 있을 때만 값을 옮기고 예전 칸은 지움)
 // 달력에서 고르는 날짜 칸 (날짜가 아닌 글자는 입력되지 않음)
@@ -42,7 +50,7 @@ const DATE_HEAD = ['주문일', '시작일', '만료일', '개설소통일', '�
 // [+]/[−]로 접는 묶음. collapsed = 설치 직후 접힌 상태
 const FOLD_GROUPS = [
   { from: '개설소통일', to: '티처몰출고', collapsed: false },
-  { from: '정산주차', to: '특이사항', collapsed: true },
+  { from: '정산주차', to: '예상구매일', collapsed: true },
 ];
 // 칸 값별 배경색 (구분용)
 const TINTS = {
@@ -270,6 +278,16 @@ function orderDatesFromBackup_(oldValues, curValues) {
   return { col: od, dates, filled, kept, unmatched };
 }
 
+// 행마다 단가 칸에 수식을 넣을지 (true) 직접 적은 값을 그대로 둘지 (false) (시트 없이 시험할 수 있는 순수 함수)
+function pricePlan_(prices, amts, people, periods) {
+  return prices.map((p, i) => {
+    if (p === '' || p === null || p === undefined) return true;
+    const a = Number(amts[i]), n = Number(people[i]), k = Number(periods[i]);
+    if (typeof p !== 'number' || !(n > 0) || !(k > 0) || amts[i] === '' || isNaN(a)) return false;
+    return Math.round(p) === Math.round(Math.round(a / n / k * 10) / 10); // 화면(#,##0)에서 같은 숫자로 보일 때만 수식으로 바꿈
+  });
+}
+
 function ungroupColumns_(sheet) {
   const all = sheet.getRange(1, 1, 1, sheet.getMaxColumns());
   for (let i = 0; i < 8; i++) {
@@ -315,6 +333,25 @@ function setupRaw() {
   each(['주문월', '정산월', '입금확인', '정산지연', '선도구분', '신규/재구매', '진행률'], h => body(h).setNumberFormat('@'));
   each(DATE_HEAD, h => body(h).setNumberFormat('yyyy-mm-dd'));
   each(['단가', '판매금액', '리셀배분액', '정산금액'], h => body(h).setNumberFormat('#,##0'));
+
+  // 단가 수식 (처음 한 번): 비어 있거나 계산값과 같은(반올림 차이) 칸에만 수식을 넣고, 다른 값을 적어 둔 칸은 그대로 둡니다
+  if (!props.getProperty(PRICE_FORMULA_KEY)) {
+    const pc = col('단가');
+    const grab = h => sheet.getRange(2, col(h), total - 1, 1).getValues().map(r => r[0]);
+    const plan = pricePlan_(grab('단가'), grab('판매금액'), grab('인원'), grab('기간'));
+    const off = h => col(h) - pc;
+    const f = '=IF(AND(ISNUMBER(R[0]C[' + off('판매금액') + ']),ISNUMBER(R[0]C[' + off('인원') + ']),ISNUMBER(R[0]C[' + off('기간') + ']),R[0]C[' + off('인원') + ']>0,R[0]C[' + off('기간') + ']>0),'
+      + 'ROUND(R[0]C[' + off('판매금액') + ']/R[0]C[' + off('인원') + ']/R[0]C[' + off('기간') + '],1),"")';
+    // 수식을 넣을 칸이 이어진 구간마다 한 번에 씁니다
+    for (let i = 0; i < plan.length;) {
+      if (!plan[i]) { i++; continue; }
+      let j = i;
+      while (j < plan.length && plan[j]) j++;
+      sheet.getRange(2 + i, pc, j - i, 1).setFormulasR1C1(Array.from({ length: j - i }, () => [f]));
+      i = j;
+    }
+    props.setProperty(PRICE_FORMULA_KEY, '1');
+  }
   each(['예외 리셀비율', '적용 리셀비율'], h => body(h).setNumberFormat('0.0%'));
 
   // 드롭다운과 입력 규칙
@@ -362,6 +399,9 @@ function setupRaw() {
     '티처몰출고': '구매처2가 테크빌인 건만 해당합니다.',
     '예상구매일': '상태가 ' + PLAN_STATUSES.join('·') + '인 건의 예상 구매일. 주차보고의 예정에 들어갑니다.',
     '개설소통일': '개설 관련 통화를 한 날짜. 더블클릭하면 달력이 열립니다.',
+    '단가': '판매금액 ÷ 인원 ÷ 기간으로 자동 계산되는 수식입니다. 다른 단가를 직접 적으면 그 행만 적은 값이 남습니다.',
+    '특이사항': '자유롭게 글로 적습니다. 무언가 적히면 그 행의 학교명이 연한 빨강으로 바뀝니다. 대시보드로 보내지 않습니다.',
+    '선도구분': '선도학교 탭에서 자동으로 찾습니다. 직접 고치지 않아도 됩니다.',
     '담당자': '담당자·직위·전화·이메일은 대시보드로 보내지 않습니다. 시트 편집자는 모두 볼 수 있습니다.',
   };
   Object.keys(notes).forEach(h => sheet.getRange(1, col(h)).setNote(notes[h]));
@@ -369,6 +409,9 @@ function setupRaw() {
   // 조건부 서식
   const r = h => letter(h) + '2';
   const rules = [
+    // 특이사항이 적힌 행은 학교명을 연한 빨강으로 (특이사항 있는 학교를 한눈에)
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=LEN(TRIM($' + r('특이사항') + '))>0')
+      .setBackground('#FFCCC7').setRanges([body('학교명')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($' + r('구매처1') + '="리셀업체",$' + r('구매처2') + '="")')
       .setBackground('#FFCCC7').setRanges([body('구매처2')]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND($' + r('상태') + '<>"",$' + r('구매처2') + '<>"' + TEACHERMALL_VENDOR + '")')
@@ -415,9 +458,14 @@ function setupRaw() {
 
   // 자동 칸은 고치려 하면 경고
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).filter(p => p.getDescription() === '자동 계산 칸').forEach(p => p.remove());
-  const firstAuto = Math.min.apply(null, autoCols.map(col));
-  const lastAuto = Math.max.apply(null, autoCols.map(col));
-  sheet.getRange(2, firstAuto, total - 1, lastAuto - firstAuto + 1).protect().setDescription('자동 계산 칸').setWarningOnly(true);
+  // 자동 칸이 이어진 구간마다 따로 보호 (선도구분처럼 앞쪽에 떨어진 칸 때문에 입력 칸까지 묶이지 않도록)
+  const autoIdx = autoCols.map(col).sort((a, b) => a - b);
+  for (let i = 0; i < autoIdx.length;) {
+    let j = i;
+    while (j + 1 < autoIdx.length && autoIdx[j + 1] === autoIdx[j] + 1) j++;
+    sheet.getRange(2, autoIdx[i], total - 1, autoIdx[j] - autoIdx[i] + 1).protect().setDescription('자동 계산 칸').setWarningOnly(true);
+    i = j + 1;
+  }
 
   // [+]/[−] 접기 묶음: 아직 묶이지 않은 칸만 새로 묶습니다 (펼침·접힘 상태는 그대로)
   FOLD_GROUPS.forEach(g => {
