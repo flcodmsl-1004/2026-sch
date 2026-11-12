@@ -17,8 +17,10 @@ const LEAD_REGIONS = ['서울', '부산', '대구', '인천', '광주', '대전'
 const BASE_CHANNELS = ['테크빌', '학교장터', '본사계좌'];
 const LEVELS = ['초등', '중등', '고등', '기타'];
 const SOL_KEYS = { '매쓰홀릭스쿨': 'M', '글잼스쿨': 'G' };
-const STATUSES = ['문의', '견적', '결제대기', '구매완료', '취소'];
-const PLAN_STATUSES = ['견적', '결제대기']; // 주차보고의 '예정'으로 셉니다
+const STATUSES = ['문의', '견적서발송', '결제대기', '구매완료', '취소'];
+const PLAN_STATUSES = ['견적', '견적서발송', '결제대기']; // 주차보고의 '예정'으로 셉니다
+const CONTACT_TAB = '연락처'; // 담당자 연락처. 스크립트는 이 탭을 절대 읽지 않습니다 (대시보드로 나가지 않음)
+const CONTACT_HEAD = ['학교명', '지역', '담당자', '직위', '전화', '이메일', '메모'];
 const CHANNEL1 = ['본사계좌', '학교장터', '리셀업체'];
 const STEPS = ['계정등록메일', '사이트개설', '계정등록', '문자안내'];
 const TEACHERMALL = '티처몰출고';  // 테크빌 건만 해당
@@ -74,6 +76,7 @@ function json_(obj) {
 }
 
 function readTab_(ss, name, required) {
+  if (name === CONTACT_TAB) throw new Error('연락처 탭은 읽지 않습니다.'); // 개인정보가 웹앱 응답에 섞이지 않도록
   const sheet = ss.getSheetByName(name);
   if (!sheet) {
     if (required) throw new Error('"' + name + '" 탭을 찾을 수 없습니다.');
@@ -109,7 +112,7 @@ function onOpen() {
     .addItem('자동 칸·주차보고 새로고침', 'refreshAll')
     .addSeparator()
     .addItem('구매현황RAW 열 정리·서식 설치', 'setupRaw')
-    .addItem('백업의 시트기재일을 주문일로 옮기기 (한 번)', 'fillOrderDateFromBackup')
+    .addItem('연락처 탭 만들기', 'setupContacts')
     .addToUi();
 }
 
@@ -188,21 +191,35 @@ function arrangeRaw_(ss, sheet) {
   const backup = SpreadsheetApp.create(RAW_TAB + ' 백업 (열 정리 전) ' + stamp);
   sheet.copyTo(backup).setName(RAW_TAB);
   backup.deleteSheet(backup.getSheets()[0]);
-  const next = rearrange_(values, RAW_LAYOUT, DROPPED_HEAD, MERGED_HEAD);
-  // 서식·드롭다운·보호·묶음을 모두 지운 뒤 새 순서로 씁니다
-  sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
-  const all = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns());
+  // 열을 통째로 옮겨서 정렬·테두리·드롭다운 색 같은 서식이 열과 함께 따라가게 합니다
   ungroupColumns_(sheet);
-  all.clearDataValidations();
-  all.clearNote();
-  sheet.clearConditionalFormatRules();
-  sheet.clear();
-  const width = next[0].length;
-  if (sheet.getMaxColumns() < width) sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
-  const textCols = ['주문월', '정산월', '입금확인','정산지연', '선도구분', '신규/재구매', '진행률'];
-  next[0].forEach((h, j) => { if (textCols.indexOf(h) >= 0) sheet.getRange(1, j + 1, sheet.getMaxRows(), 1).setNumberFormat('@'); });
-  sheet.getRange(1, 1, next.length, width).setValues(next);
-  sheet.setColumnWidths(1, sheet.getMaxColumns(), 100);
+  const headNow = () => sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const rows = Math.max(sheet.getLastRow() - 1, 1);
+  // 1) 예전 이름 칸 → 새 이름 칸 (새 칸이 비어 있을 때만 값을 옮김), 예전 칸은 삭제
+  Object.keys(MERGED_HEAD).forEach(from => {
+    let h = headNow();
+    const fi = h.indexOf(from);
+    if (fi < 0) return;
+    let ti = h.indexOf(MERGED_HEAD[from]);
+    if (ti < 0) { sheet.getRange(1, fi + 1).setValue(MERGED_HEAD[from]); return; }
+    const src = sheet.getRange(2, fi + 1, rows, 1).getValues();
+    const dst = sheet.getRange(2, ti + 1, rows, 1).getValues();
+    sheet.getRange(2, ti + 1, rows, 1).setValues(dst.map((r, i) => [r[0] === '' || r[0] === null ? src[i][0] : r[0]]));
+    sheet.deleteColumn(fi + 1);
+  });
+  // 2) 지우는 칸 삭제
+  DROPPED_HEAD.forEach(name => { const i = headNow().indexOf(name); if (i >= 0) sheet.deleteColumn(i + 1); });
+  // 3) 없는 칸은 맨 오른쪽에 새로 만들고, 4) 정해진 순서로 옮김 (모르는 칸은 오른쪽에 남음)
+  RAW_LAYOUT.forEach(name => {
+    if (headNow().indexOf(name) < 0) {
+      sheet.insertColumnAfter(sheet.getLastColumn());
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(name);
+    }
+  });
+  RAW_LAYOUT.forEach((name, i) => {
+    const at = headNow().indexOf(name);
+    if (at !== i) sheet.moveColumns(sheet.getRange(1, at + 1, 1, 1), i + 1);
+  });
   return backup.getUrl();
 }
 
@@ -248,6 +265,33 @@ function orderDatesFromBackup_(oldValues, curValues) {
   return { col: od, dates, filled, kept, unmatched };
 }
 
+// 연락처 탭을 만듭니다. 이미 있으면 아무것도 바꾸지 않습니다
+function setupContacts() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(CONTACT_TAB);
+  let msg = '"' + CONTACT_TAB + '" 탭이 이미 있어서 그대로 두었습니다.';
+  if (!sheet) {
+    sheet = ss.insertSheet(CONTACT_TAB);
+    const n = CONTACT_HEAD.length;
+    sheet.getRange(1, 1, 1, n).setValues([CONTACT_HEAD]).setFontWeight('bold').setBackground('#E6F4FF').setVerticalAlignment('middle');
+    sheet.setFrozenRows(1);
+    sheet.getRange(2, 1, sheet.getMaxRows() - 1, n).setNumberFormat('@'); // 전화번호 앞의 0이 사라지지 않도록 글자로
+    const raw = ss.getSheetByName(RAW_TAB);
+    if (raw) {
+      const h = raw.getRange(1, 1, 1, raw.getLastColumn()).getValues()[0].map(x => String(x).trim());
+      const c = h.indexOf('학교명') + 1;
+      if (c > 0) sheet.getRange(2, 1, sheet.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireValueInRange(raw.getRange(2, c, raw.getMaxRows() - 1, 1), true).setAllowInvalid(true)
+        .setHelpText('구매현황RAW의 학교명과 똑같이 적어야 찾기 쉽습니다.').build());
+    }
+    sheet.getRange(2, 2, sheet.getMaxRows() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(LEAD_REGIONS, true).setAllowInvalid(true).build());
+    [180, 70, 90, 90, 130, 200, 300].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+    sheet.getRange(1, 1).setNote('이 탭은 대시보드로 보내지 않습니다. 시트를 공유받은 사람은 모두 볼 수 있으니 공유 대상을 확인하세요.');
+    msg = '"' + CONTACT_TAB + '" 탭을 만들었습니다.';
+  }
+  try { SpreadsheetApp.getUi().alert(msg); } catch (noUi) {}
+}
+
 function ungroupColumns_(sheet) {
   const all = sheet.getRange(1, 1, 1, sheet.getMaxColumns());
   for (let i = 0; i < 8; i++) {
@@ -272,7 +316,7 @@ function setupRaw() {
   const missing = RAW_LAYOUT.filter(h => head.indexOf(h) < 0);
   if (missing.length) throw new Error(RAW_TAB + ' 탭에 없는 머리글: ' + missing.join(', '));
 
-  const total = 3000;
+  const total = Math.max(3000, sheet.getMaxRows());
   if (sheet.getMaxRows() < total) sheet.insertRowsAfter(sheet.getMaxRows(), total - sheet.getMaxRows());
   const col = h => head.indexOf(h) + 1;
   const letter = h => columnLetter_(col(h));
@@ -280,53 +324,64 @@ function setupRaw() {
   const rule = () => SpreadsheetApp.newDataValidation();
   const list = (values, allowInvalid) => rule().requireValueInList(values, true).setAllowInvalid(!!allowInvalid).build();
 
+  // 사용자가 직접 바꾼 서식(정렬·테두리·드롭다운 색·칸 너비)을 지키기 위해,
+  // 표시 형식·드롭다운·색·너비는 "아직 설치하지 않은 칸"에만 넣습니다
+  const props = PropertiesService.getDocumentProperties();
+  let done = JSON.parse(props.getProperty('RAW_STYLED') || 'null');
+  if (!done) done = sheet.getRange(1, col('주문월')).getNote() ? RAW_LAYOUT.slice() : []; // 예전에 설치한 시트는 모두 설치된 것으로 봄
+  const fresh = h => done.indexOf(h) < 0;
+  const each = (names, fn) => names.filter(fresh).forEach(fn);
+
   // 표시 형식 (텍스트 칸이 날짜로 바뀌지 않도록 먼저 지정)
-  ['주문월', '정산월', '입금확인', '정산지연', '선도구분', '신규/재구매', '진행률'].forEach(h => body(h).setNumberFormat('@'));
-  DATE_HEAD.forEach(h => body(h).setNumberFormat('yyyy-mm-dd'));
-  ['단가', '판매금액', '리셀배분액', '정산금액'].forEach(h => body(h).setNumberFormat('#,##0'));
-  ['예외 리셀비율', '적용 리셀비율'].forEach(h => body(h).setNumberFormat('0.0%'));
+  each(['주문월', '정산월', '입금확인', '정산지연', '선도구분', '신규/재구매', '진행률'], h => body(h).setNumberFormat('@'));
+  each(DATE_HEAD, h => body(h).setNumberFormat('yyyy-mm-dd'));
+  each(['단가', '판매금액', '리셀배분액', '정산금액'], h => body(h).setNumberFormat('#,##0'));
+  each(['예외 리셀비율', '적용 리셀비율'], h => body(h).setNumberFormat('0.0%'));
 
   // 드롭다운과 입력 규칙
   const months = [];
   for (let y = REPORT_YEAR - 1; y <= REPORT_YEAR + 1; y++) for (let m = 1; m <= 12; m++) months.push(ym_(y, m));
-  body('상태').setDataValidation(list(STATUSES));
-  body('솔루션').setDataValidation(list(Object.keys(SOL_KEYS)));
-  body('지역').setDataValidation(list(LEAD_REGIONS));
-  body('구매처1').setDataValidation(list(CHANNEL1));
-  body('구매처2').setDataValidation(rule().requireValueInRange(rates.getRange('A2:A'), true).setAllowInvalid(false).build());
-  body('가격구분').setDataValidation(list(['정상가', '협의가', '확인필요']));
-  body('정산월').setDataValidation(list(months));
-  body('정산주차').setDataValidation(rule().requireNumberBetween(0, 6).setAllowInvalid(false).setHelpText('1~6 숫자로 입력합니다. 0 = 주차 구분 없음').build());
-  body('예외 리셀비율').setDataValidation(rule().requireNumberBetween(0, 1).setAllowInvalid(false).setHelpText('30%처럼 입력합니다. 비워두면 배분비율 탭 기준으로 계산합니다.').build());
+  const valid = {
+    '상태': () => list(STATUSES),
+    '솔루션': () => list(Object.keys(SOL_KEYS)),
+    '지역': () => list(LEAD_REGIONS),
+    '구매처1': () => list(CHANNEL1),
+    '구매처2': () => rule().requireValueInRange(rates.getRange('A2:A'), true).setAllowInvalid(false).build(),
+    '가격구분': () => list(['정상가', '협의가', '확인필요']),
+    '정산월': () => list(months),
+    '정산주차': () => rule().requireNumberBetween(0, 6).setAllowInvalid(false).setHelpText('1~6 숫자로 입력합니다. 0 = 주차 구분 없음').build(),
+    '예외 리셀비율': () => rule().requireNumberBetween(0, 1).setAllowInvalid(false).setHelpText('30%처럼 입력합니다. 비워두면 배분비율 탭 기준으로 계산합니다.').build(),
+  };
   // 날짜 칸: 더블클릭하면 달력이 열리고, 날짜가 아닌 글자는 입력되지 않음
-  DATE_HEAD.forEach(h => body(h).setDataValidation(rule().requireDate().setAllowInvalid(false)
-    .setHelpText('더블클릭해서 달력에서 고르거나 2026-11-12 형식으로 입력합니다.').build()));
-  STEPS.concat([TEACHERMALL]).forEach(h => body(h).setDataValidation(list(['O', 'X'])));
+  DATE_HEAD.forEach(h => { valid[h] = () => rule().requireDate().setAllowInvalid(false).setHelpText('더블클릭해서 달력에서 고르거나 2026-11-12 형식으로 입력합니다.').build(); });
+  STEPS.concat([TEACHERMALL]).forEach(h => { valid[h] = () => list(['O', 'X']); });
+  each(Object.keys(valid), h => body(h).setDataValidation(valid[h]()));
 
-  // 머리글 색: 입력 칸은 파랑, 자동 칸은 회색
-  const last = sheet.getLastColumn();
-  sheet.getRange(1, 1, 1, last).setFontWeight('bold').setBackground('#E6F4FF').setWrap(true).setVerticalAlignment('middle');
+  // 머리글 색(입력 칸 파랑, 자동 칸 회색)·칸 너비·판매금액 강조
   const autoCols = ORDER_AUTO.concat(AUTO_HEAD);
-  autoCols.forEach(h => {
-    sheet.getRange(1, col(h)).setBackground('#D9D9D9').setFontColor('#595959').setNote('자동 계산 칸입니다. 직접 고치면 다음 새로고침 때 덮어씁니다.');
-    body(h).setBackground('#FAFAFA').setFontColor('#595959');
-  });
-  sheet.getRange(1, col('주문월')).setNote('주문일을 넣으면 자동으로 채워집니다. 주문일이 없는 예전 건만 이 칸의 값을 그대로 씁니다.');
-  sheet.getRange(1, col('입금확인')).setNote('본사계좌·학교장터 입금 확인 메모 (예: 11/12 입금 확인). 자유롭게 글로 적습니다. 계산·대시보드에는 쓰지 않습니다.');
-  sheet.setColumnWidth(col('입금확인'), 150);
-  sheet.getRange(1, col('학교급')).setNote('학교명에서 자동: …초등학교 → 초등, …중학교 → 중등, …고등학교 → 고등, 그 밖(…학교, 기관명) → 기타. 괄호 안 글자는 무시합니다.');
-  sheet.getRange(1, col('주문주차')).setNote('주문일을 넣으면 자동으로 채워집니다 (월요일 시작, 1일이 속한 주 = 1주차).');
-  sheet.getRange(1, col('정산월')).setNote('정산된 달 (예: 2026-11). 비워두면 주문월 기준으로 집계합니다. 정산지연 = 정산월 − 주문월.');
-  sheet.getRange(1, col('정산주차')).setNote('비워두면 실제정산일이 정산월 안에 있을 때 그 날짜의 주차로 계산합니다.');
-  sheet.getRange(1, col('예외 리셀비율')).setNote('비워두면 배분비율 탭에서 구매처2와 정산월로 찾습니다. 행별로 다른 비율일 때만 입력합니다.');
-  sheet.getRange(1, col('티처몰출고')).setNote('구매처2가 테크빌인 건만 해당합니다.');
-  sheet.getRange(1, col('예상구매일')).setNote('상태가 견적·결제대기인 건의 예상 구매일. 주차보고의 예정에 들어갑니다.');
-  sheet.setFrozenRows(1);
-  sheet.setRowHeight(1, 42);
-  ['비고', '특이사항'].forEach(h => { sheet.setColumnWidth(col(h), 240); body(h).setWrap(true); });
-  sheet.setColumnWidth(col('학교명'), 160);
-  body('판매금액').setBackground('#FFF4D1'); // 판매금액 강조 (연한 노랑)
-  sheet.getRange(1, col('개설소통일')).setNote('개설 관련 통화를 한 날짜. 더블클릭하면 달력이 열립니다.');
+  each(RAW_LAYOUT, h => sheet.getRange(1, col(h)).setFontWeight('bold').setBackground('#E6F4FF').setWrap(true).setVerticalAlignment('middle'));
+  each(autoCols, h => { sheet.getRange(1, col(h)).setBackground('#D9D9D9').setFontColor('#595959'); body(h).setBackground('#FAFAFA').setFontColor('#595959'); });
+  each(['입금확인'], h => sheet.setColumnWidth(col(h), 150));
+  each(['비고', '특이사항'], h => { sheet.setColumnWidth(col(h), 240); body(h).setWrap(true); });
+  each(['학교명'], h => sheet.setColumnWidth(col(h), 160));
+  each(['판매금액'], h => body(h).setBackground('#FFF4D1')); // 판매금액 강조 (연한 노랑)
+  if (!done.length) { sheet.setFrozenRows(1); sheet.setRowHeight(1, 42); }
+
+  // 머리글 메모 (서식이 아니라 다시 써도 됩니다)
+  autoCols.forEach(h => sheet.getRange(1, col(h)).setNote('자동 계산 칸입니다. 직접 고치면 다음 새로고침 때 덮어씁니다.'));
+  const notes = {
+    '주문월': '주문일을 넣으면 자동으로 채워집니다. 주문일이 없는 예전 건만 이 칸의 값을 그대로 씁니다.',
+    '입금확인': '본사계좌·학교장터 입금 확인 메모 (예: 11/12 입금 확인). 자유롭게 글로 적습니다. 계산·대시보드에는 쓰지 않습니다.',
+    '학교급': '학교명에서 자동: …초등학교 → 초등, …중학교 → 중등, …고등학교 → 고등, 그 밖(…학교, 기관명) → 기타. 괄호 안 글자는 무시합니다.',
+    '주문주차': '주문일을 넣으면 자동으로 채워집니다 (월요일 시작, 1일이 속한 주 = 1주차).',
+    '정산월': '정산된 달 (예: 2026-11). 비워두면 주문월 기준으로 집계합니다. 정산지연 = 정산월 − 주문월.',
+    '정산주차': '비워두면 실제정산일이 정산월 안에 있을 때 그 날짜의 주차로 계산합니다.',
+    '예외 리셀비율': '비워두면 배분비율 탭에서 구매처2와 정산월로 찾습니다. 행별로 다른 비율일 때만 입력합니다.',
+    '티처몰출고': '구매처2가 테크빌인 건만 해당합니다.',
+    '예상구매일': '상태가 ' + PLAN_STATUSES.join('·') + '인 건의 예상 구매일. 주차보고의 예정에 들어갑니다.',
+    '개설소통일': '개설 관련 통화를 한 날짜. 더블클릭하면 달력이 열립니다.',
+  };
+  Object.keys(notes).forEach(h => sheet.getRange(1, col(h)).setNote(notes[h]));
 
   // 조건부 서식
   const r = h => letter(h) + '2';
@@ -364,7 +419,16 @@ function setupRaw() {
   Object.keys(TINTS).forEach(h => Object.keys(TINTS[h]).forEach(v => {
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(v).setBackground(TINTS[h][v]).setRanges([body(h)]).build());
   }));
-  sheet.setConditionalFormatRules(rules);
+  // 사용자가 직접 만든 규칙은 그대로 두고 (스크립트 규칙 다음에 둠), 같은 칸·같은 조건의 예전 스크립트 규칙만 바꿉니다
+  const sig = cf => {
+    const b = cf.getBooleanCondition();
+    const g = cf.getRanges()[0];
+    return [g.getColumn(), g.getNumColumns(), g.getRow(), b ? b.getCriteriaType() : 'gradient', b ? JSON.stringify(b.getCriteriaValues()) : ''].join('|');
+  };
+  const mine = {};
+  rules.forEach(cf => { mine[sig(cf)] = true; });
+  const userRules = sheet.getConditionalFormatRules().filter(cf => !mine[sig(cf)]);
+  sheet.setConditionalFormatRules(rules.concat(userRules));
 
   // 자동 칸은 고치려 하면 경고
   sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).filter(p => p.getDescription() === '자동 계산 칸').forEach(p => p.remove());
@@ -372,21 +436,25 @@ function setupRaw() {
   const lastAuto = Math.max.apply(null, autoCols.map(col));
   sheet.getRange(2, firstAuto, total - 1, lastAuto - firstAuto + 1).protect().setDescription('자동 계산 칸').setWarningOnly(true);
 
-  // [+]/[−] 접기 묶음
-  ungroupColumns_(sheet);
+  // [+]/[−] 접기 묶음: 아직 묶이지 않은 칸만 새로 묶습니다 (펼침·접힘 상태는 그대로)
   FOLD_GROUPS.forEach(g => {
+    if (sheet.getColumnGroupDepth(col(g.from)) > 0) return;
     sheet.getRange(1, col(g.from), 1, col(g.to) - col(g.from) + 1).shiftColumnGroupDepth(1);
     if (g.collapsed) sheet.getColumnGroup(col(g.from), 1).collapse();
   });
+  props.setProperty('RAW_STYLED', JSON.stringify(RAW_LAYOUT));
 
-  // 배분비율 탭
-  rates.getRange(1, 1, 1, RATE_HEAD.length).setFontWeight('bold').setBackground('#E6F4FF');
-  rates.getRange('B2:B200').setNumberFormat('@');
-  rates.getRange('C2:D200').setNumberFormat('0.0%');
-  rates.getRange('D2:D200').setFormulas(Array.from({ length: 199 }, (_, i) => ['=IF(C' + (i + 2) + '="","",1-C' + (i + 2) + ')']));
-  rates.getRange(1, 2).setNote('이 정산월부터 적용합니다 (예: 2026-11). 같은 업체의 비율이 바뀌면 아래에 새 줄을 추가합니다.');
-  rates.setFrozenRows(1);
-  rates.setColumnWidth(5, 360);
+  // 배분비율 탭 (처음 한 번)
+  if (!props.getProperty('RATE_STYLED') && !rates.getRange(1, 2).getNote()) {
+    rates.getRange(1, 1, 1, RATE_HEAD.length).setFontWeight('bold').setBackground('#E6F4FF');
+    rates.getRange('B2:B200').setNumberFormat('@');
+    rates.getRange('C2:D200').setNumberFormat('0.0%');
+    rates.getRange('D2:D200').setFormulas(Array.from({ length: 199 }, (_, i) => ['=IF(C' + (i + 2) + '="","",1-C' + (i + 2) + ')']));
+    rates.getRange(1, 2).setNote('이 정산월부터 적용합니다 (예: 2026-11). 같은 업체의 비율이 바뀌면 아래에 새 줄을 추가합니다.');
+    rates.setFrozenRows(1);
+    rates.setColumnWidth(5, 360);
+  }
+  props.setProperty('RATE_STYLED', '1');
 
   // 예전 탭은 숨기고, 1시간마다 자동 새로고침
   OLD_TABS.forEach(name => { const s = ss.getSheetByName(name); if (s) s.hideSheet(); });
